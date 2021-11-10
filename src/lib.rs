@@ -1,3 +1,4 @@
+
 use heapless::{String, Vec};
 use serde::{Deserialize, Serialize};
 
@@ -38,20 +39,32 @@ pub struct Timeout {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Check {
     pub name: String<20>,
-    pub value: String<20>,
+    pub check: CheckType,
     pub condition: CheckCondition,
+    pub value: f32,
     pub satisfied: CheckSatisfied,
+}
+
+
+#[derive(Debug, Serialize, Deserialize)]
+#[allow(non_camel_case_types)]
+pub enum CheckType {
+    altitude,
+    pyro1_continuity,
+    pyro2_continuity,
+    pyro3_continuity,
 }
 
 /// Represents a type of state check
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(non_camel_case_types)]
 pub enum CheckCondition {
-    FlagSet,
-    FlagUnSet,
-    Equals { value: f32 },
-    GreaterThan { value: f32 },
-    LessThan { value: f32 },
-    Between { upper_bound: f32, lower_bound: f32 },
+    flag_set,
+    flag_unset,
+    equals { value: f32 },
+    greater_than { value: f32 },
+    less_than { value: f32 },
+    between { upper_bound: f32, lower_bound: f32 },
 }
 
 /// A state transition due to a check being satisfied
@@ -90,31 +103,6 @@ pub enum CommandObjectValue {
     Int32(i32),
     Bool(bool),
     GPIO(bool),
-}
-
-impl CommandObjectValue {
-    /// Returns the type of the contained value
-    pub fn classify(&self) -> CommandObjectValueType {
-        match *self {
-            CommandObjectValue::Float32(_) => CommandObjectValueType::Float32,
-            CommandObjectValue::Int32(_) => CommandObjectValueType::Int32,
-            CommandObjectValue::Bool(_) => CommandObjectValueType::Bool,
-            CommandObjectValue::GPIO(_) => CommandObjectValueType::GPIO,
-        }
-    }
-}
-
-impl CommandObject {
-    /// Returns the storage type of the given `CommandObject`
-    pub fn get_type(&self) -> CommandObjectValueType {
-        match *self {
-            CommandObject::pyro1 => CommandObjectValueType::GPIO,
-            CommandObject::pyro2 => CommandObjectValueType::GPIO,
-            CommandObject::pyro3 => CommandObjectValueType::GPIO,
-            CommandObject::beacon => CommandObjectValueType::Bool,
-            CommandObject::data_rate => CommandObjectValueType::Int32,
-        }
-    }
 }
 
 /// A check within a state that is run every time the state is run
@@ -165,6 +153,32 @@ impl Command {
         }
     }
 }
+
+impl CommandObjectValue {
+    /// Returns the type of the contained value
+    pub fn classify(&self) -> CommandObjectValueType {
+        match *self {
+            CommandObjectValue::Float32(_) => CommandObjectValueType::Float32,
+            CommandObjectValue::Int32(_) => CommandObjectValueType::Int32,
+            CommandObjectValue::Bool(_) => CommandObjectValueType::Bool,
+            CommandObjectValue::GPIO(_) => CommandObjectValueType::GPIO,
+        }
+    }
+}
+
+impl CommandObject {
+    /// Returns the storage type of the given `CommandObject`
+    pub fn get_type(&self) -> CommandObjectValueType {
+        match *self {
+            CommandObject::pyro1 => CommandObjectValueType::GPIO,
+            CommandObject::pyro2 => CommandObjectValueType::GPIO,
+            CommandObject::pyro3 => CommandObjectValueType::GPIO,
+            CommandObject::beacon => CommandObjectValueType::Bool,
+            CommandObject::data_rate => CommandObjectValueType::Int32,
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {

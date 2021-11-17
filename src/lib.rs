@@ -178,17 +178,3 @@ impl CommandObject {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    //Checks for size based breaking changes
-    #[test]
-    fn test_config_size() {
-        let size = core::mem::size_of::<ConfigFile>();
-        //TODO: This is massive.
-        //We need to try to optimize this
-        assert_eq!(size, 7944);
-    }
-}

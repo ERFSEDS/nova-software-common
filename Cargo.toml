@@ -5,4 +5,7 @@ edition = "2021"
 
 [dependencies]
 heapless = { version = "0.7.7", features = ["serde"] }
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+
+[features]
+std = ["serde/std"]

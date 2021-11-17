@@ -1,3 +1,4 @@
+#![cfg_attr(not(feature = "std"), no_std)]
 
 use heapless::{String, Vec};
 use serde::{Deserialize, Serialize};
@@ -44,7 +45,6 @@ pub struct Check {
     pub value: f32,
     pub satisfied: CheckSatisfied,
 }
-
 
 #[derive(Debug, Serialize, Deserialize)]
 #[allow(non_camel_case_types)]
@@ -121,7 +121,7 @@ fn fail() -> ! {
 }
 
 impl Command {
-    pub fn get_pyro(&self) -> bool { 
+    pub fn get_pyro(&self) -> bool {
         match self.object {
             CommandObject::pyro1 | CommandObject::pyro2 | CommandObject::pyro3 => {
                 match self.value {
@@ -178,7 +178,6 @@ impl CommandObject {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

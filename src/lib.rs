@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use heapless::{String, Vec};
+use heapless::Vec;
 use serde::{Deserialize, Serialize};
 
 pub struct ConfigFile {
@@ -26,29 +26,59 @@ impl From<StateIndex> for usize {
 pub struct State {
     //pub name: String<16>,
     pub checks: Vec<Check, 3>,
-    pub commands: Vec<Command, 1>,
+    pub commands: Vec<Command, 3>,
     pub timeout: Option<Timeout>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+impl State {
+    pub fn new(checks: Vec<Check, 3>, commands: Vec<Command, 3>, timeout: Option<Timeout>) -> Self {
+        Self {
+            checks,
+            commands,
+            timeout,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub struct Timeout {
     /// Time in seconds to wait before transitioning
     pub time: f32,
-    /// The state to transition to
-    pub transition: StateIndex,
+    /// The transition that is made when the state times out
+    pub transition: StateTransition,
+}
+
+impl Timeout {
+    pub fn new(time: f32, transition: StateTransition) -> Self {
+        Self { time, transition }
+    }
 }
 
 /// A check within a state that is run every time the state is run
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Check {
     //pub name: String<16>,
-    pub check: CheckType,
+    pub object: CheckObject,
     pub condition: CheckCondition,
-    pub on_satisfied: CheckSatisfied,
+    pub transition: StateTransition,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub enum CheckType {
+impl Check {
+    pub fn new(
+        object: CheckObject,
+        condition: CheckCondition,
+        transition: StateTransition,
+    ) -> Self {
+        Self {
+            object,
+            condition,
+            transition,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+pub enum CheckObject {
     Altitude,
     Pyro1Continuity,
     Pyro2Continuity,
@@ -56,7 +86,7 @@ pub enum CheckType {
 }
 
 /// Represents a type of state check
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub enum CheckCondition {
     FlagSet,
     FlagUnset,
@@ -69,52 +99,56 @@ pub enum CheckCondition {
 /// A state transition due to a check being satisfied
 /// This is how states transition from one to another.
 ///
-/// The enum values are the indexes of states within the vector passed to StateMachine::from_vec()
-#[derive(Debug, Serialize, Deserialize)]
-pub enum CheckSatisfied {
+/// The enum values are the indexes of a state
+#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+pub enum StateTransition {
     /// Represents a safe transition to another state
     Transition(StateIndex),
     /// Represents an abort to a safer state if an abort condition was met
     Abort(StateIndex),
 }
 
+/// Represents the state that something's value can be, this can be the value a command will set
+/// something to, or a value that a check will receive
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
-pub enum CommandKind {
-    Pyro1(bool),
-    Pyro2(bool),
-    Pyro3(bool),
-    Beacon(bool),
-    DataRate(u16),
+pub enum ObjectState {
+    /// An On/Off True/False for a GPIO for example
+    Flag(bool),
+    /// A floating-point value
+    Float(f32),
+    // We may want to rename/remove this, but this was for the DataRate
+    Short(u16),
 }
 
-/// A task that is run when the containing state is activated
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Command {
-    /// The kind of command this is
-    kind: CommandKind,
+/// An object that a command can act upon
+#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+pub enum CommandObject {
+    Pyro1,
+    Pyro2,
+    Pyro3,
+    Beacon,
+    DataRate,
+}
 
-    /// How long after the state activates to execute this command
-    delay: f32,
+/// An action that takes place at a specific time after the state containing this is entered
+#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+pub struct Command {
+    /// The object that this command will act upon
+    pub object: CommandObject,
+
+    /// The new state that the command's object should be in after it is executed
+    pub state: ObjectState,
+
+    /// How long after the state activates to execute this command (in seconds)
+    pub delay: f32,
 }
 
 impl Command {
-    pub fn get_pyro(&self) -> bool {
-        match self.kind {
-            CommandKind::Pyro1(val) => val,
-            CommandKind::Pyro2(val) => val,
-            CommandKind::Pyro3(val) => val,
-            CommandKind::Beacon(val) => false,
-            CommandKind::DataRate(_) => false,
-        }
-    }
-
-    pub fn get_beacon(&self) -> bool {
-        match self.kind {
-            CommandKind::Pyro1(_) => false,
-            CommandKind::Pyro2(_) => false,
-            CommandKind::Pyro3(_) => false,
-            CommandKind::Beacon(val) => val,
-            CommandKind::DataRate(_) => false,
+    pub fn new(object: CommandObject, state: ObjectState, delay: f32) -> Self {
+        Self {
+            object,
+            state,
+            delay,
         }
     }
 }

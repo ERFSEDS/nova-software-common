@@ -12,9 +12,9 @@ pub struct ConfigFile {
 #[repr(transparent)]
 pub struct StateIndex(u8);
 
-impl Into<usize> for StateIndex {
-    fn into(self) -> usize {
-        self.0 as usize
+impl From<StateIndex> for usize {
+    fn from(index: StateIndex) -> Self {
+        index.0 as usize
     }
 }
 
@@ -24,7 +24,7 @@ impl Into<usize> for StateIndex {
 ///
 #[derive(Debug, Serialize, Deserialize)]
 pub struct State {
-    pub name: String<16>,
+    //pub name: String<16>,
     pub checks: Vec<Check, 3>,
     pub commands: Vec<Command, 1>,
     pub timeout: Option<Timeout>,
@@ -32,17 +32,18 @@ pub struct State {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Timeout {
+    /// Time in seconds to wait before transitioning
     pub time: f32,
+    /// The state to transition to
     pub transition: StateIndex,
 }
 
 /// A check within a state that is run every time the state is run
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Check {
-    pub name: String<16>,
+    //pub name: String<16>,
     pub check: CheckType,
     pub condition: CheckCondition,
-    pub value: f32,
     pub on_satisfied: CheckSatisfied,
 }
 
@@ -78,28 +79,42 @@ pub enum CheckSatisfied {
 }
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
-pub enum CommandObject {
-    Pyro1,
-    Pyro2,
-    Pyro3,
-    Beacon,
-    DataRate,
+pub enum CommandKind {
+    Pyro1(bool),
+    Pyro2(bool),
+    Pyro3(bool),
+    Beacon(bool),
+    DataRate(u16),
 }
 
-/// A check within a state that is run every time the state is run
+/// A task that is run when the containing state is activated
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Command {
-    object: CommandObject,
-    value: f32,
+    /// The kind of command this is
+    kind: CommandKind,
+
+    /// How long after the state activates to execute this command
     delay: f32,
 }
 
 impl Command {
     pub fn get_pyro(&self) -> bool {
-        self.value == 1.0
+        match self.kind {
+            CommandKind::Pyro1(val) => val,
+            CommandKind::Pyro2(val) => val,
+            CommandKind::Pyro3(val) => val,
+            CommandKind::Beacon(val) => false,
+            CommandKind::DataRate(_) => false,
+        }
     }
 
     pub fn get_beacon(&self) -> bool {
-        self.value == 1.0
+        match self.kind {
+            CommandKind::Pyro1(_) => false,
+            CommandKind::Pyro2(_) => false,
+            CommandKind::Pyro3(_) => false,
+            CommandKind::Beacon(val) => val,
+            CommandKind::DataRate(_) => false,
+        }
     }
 }

@@ -90,7 +90,7 @@ pub enum CheckObject {
 pub enum CheckCondition {
     FlagSet,
     FlagUnset,
-    Equals { value: f32 },
+    // Equals { value: f32 },
     GreaterThan { value: f32 },
     LessThan { value: f32 },
     Between { upper_bound: f32, lower_bound: f32 },

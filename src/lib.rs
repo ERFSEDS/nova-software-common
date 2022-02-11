@@ -1,11 +1,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub const MAX_STATES: usize = 16;
+pub const MAX_CHECKS_PER_STATE: usize = 3;
+pub const MAX_COMMANDS_PER_STATE: usize = 3;
+
 use heapless::Vec;
 use serde::{Deserialize, Serialize};
 
 pub struct ConfigFile {
     pub default_state: StateIndex,
-    pub states: Vec<State, 16>,
+    pub states: Vec<State, MAX_STATES>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
@@ -25,13 +29,17 @@ impl From<StateIndex> for usize {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct State {
     //pub name: String<16>,
-    pub checks: Vec<Check, 3>,
-    pub commands: Vec<Command, 3>,
+    pub checks: Vec<Check, MAX_CHECKS_PER_STATE>,
+    pub commands: Vec<Command, MAX_COMMANDS_PER_STATE>,
     pub timeout: Option<Timeout>,
 }
 
 impl State {
-    pub fn new(checks: Vec<Check, 3>, commands: Vec<Command, 3>, timeout: Option<Timeout>) -> Self {
+    pub fn new(
+        checks: Vec<Check, MAX_CHECKS_PER_STATE>,
+        commands: Vec<Command, MAX_COMMANDS_PER_STATE>,
+        timeout: Option<Timeout>,
+    ) -> Self {
         Self {
             checks,
             commands,

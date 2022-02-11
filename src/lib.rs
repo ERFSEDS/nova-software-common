@@ -3,12 +3,13 @@
 use heapless::Vec;
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct ConfigFile {
     pub default_state: StateIndex,
     pub states: Vec<State, 16>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct StateIndex(u8);
 
@@ -22,7 +23,7 @@ impl From<StateIndex> for usize {
 ///
 /// This should be things like Armed, Stage1, Stage2, Safe, etc.
 ///
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct State {
     //pub name: String<16>,
     pub checks: Vec<Check, 3>,
@@ -40,7 +41,7 @@ impl State {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
 pub struct Timeout {
     /// Time in seconds to wait before transitioning
     pub time: f32,
@@ -55,7 +56,7 @@ impl Timeout {
 }
 
 /// A check within a state that is run every time the state is run
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Check {
     //pub name: String<16>,
     pub object: CheckObject,
@@ -77,7 +78,7 @@ impl Check {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
 pub enum CheckObject {
     Altitude,
     Pyro1Continuity,
@@ -86,7 +87,7 @@ pub enum CheckObject {
 }
 
 /// Represents a type of state check
-#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
 pub enum CheckCondition {
     FlagSet,
     FlagUnset,
@@ -100,7 +101,7 @@ pub enum CheckCondition {
 /// This is how states transition from one to another.
 ///
 /// The enum values are the indexes of a state
-#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
 pub enum StateTransition {
     /// Represents a safe transition to another state
     Transition(StateIndex),
@@ -110,7 +111,7 @@ pub enum StateTransition {
 
 /// Represents the state that something's value can be, this can be the value a command will set
 /// something to, or a value that a check will receive
-#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
 pub enum ObjectState {
     /// An On/Off True/False for a GPIO for example
     Flag(bool),
@@ -121,7 +122,7 @@ pub enum ObjectState {
 }
 
 /// An object that a command can act upon
-#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
 pub enum CommandObject {
     Pyro1,
     Pyro2,
@@ -131,7 +132,7 @@ pub enum CommandObject {
 }
 
 /// An action that takes place at a specific time after the state containing this is entered
-#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
 pub struct Command {
     /// The object that this command will act upon
     pub object: CommandObject,

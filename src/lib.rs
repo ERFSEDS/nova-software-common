@@ -1,12 +1,16 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub const MAX_STATES: usize = 16;
+pub const MAX_CHECKS_PER_STATE: usize = 3;
+pub const MAX_COMMANDS_PER_STATE: usize = 3;
+
 use heapless::Vec;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct ConfigFile {
     pub default_state: StateIndex,
-    pub states: Vec<State, 16>,
+    pub states: Vec<State, MAX_STATES>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
@@ -26,13 +30,17 @@ impl From<StateIndex> for usize {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct State {
     //pub name: String<16>,
-    pub checks: Vec<Check, 3>,
-    pub commands: Vec<Command, 3>,
+    pub checks: Vec<Check, MAX_CHECKS_PER_STATE>,
+    pub commands: Vec<Command, MAX_COMMANDS_PER_STATE>,
     pub timeout: Option<Timeout>,
 }
 
 impl State {
-    pub fn new(checks: Vec<Check, 3>, commands: Vec<Command, 3>, timeout: Option<Timeout>) -> Self {
+    pub fn new(
+        checks: Vec<Check, MAX_CHECKS_PER_STATE>,
+        commands: Vec<Command, MAX_COMMANDS_PER_STATE>,
+        timeout: Option<Timeout>,
+    ) -> Self {
         Self {
             checks,
             commands,
@@ -91,7 +99,7 @@ pub enum CheckObject {
 pub enum CheckCondition {
     FlagSet,
     FlagUnset,
-    Equals { value: f32 },
+    // Equals { value: f32 },
     GreaterThan { value: f32 },
     LessThan { value: f32 },
     Between { upper_bound: f32, lower_bound: f32 },

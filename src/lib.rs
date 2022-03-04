@@ -2,9 +2,9 @@
 
 extern crate alloc;
 
+pub mod conversions;
 pub mod index;
 pub mod reference;
-pub mod conversions;
 
 pub use conversions::indices_to_refs;
 
@@ -44,7 +44,7 @@ pub enum ObjectState {
     Flag(bool),
     /// A floating-point value
     Float(f32),
-    // We may want to rename/remove this, but this was for the DataRate
+    // TODO: We may want to rename/remove this, but this was for the DataRate
     Short(u16),
 }
 
@@ -81,3 +81,12 @@ impl Command {
     }
 }
 
+impl From<&crate::reference::Command> for Command {
+    fn from(c: &crate::reference::Command) -> Self {
+        Self {
+            object: c.object,
+            state: c.state,
+            delay: c.delay,
+        }
+    }
+}

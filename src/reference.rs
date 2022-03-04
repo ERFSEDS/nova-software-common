@@ -2,7 +2,10 @@
 //! This module's types are uses as opposed to [`index`] during runtime, when being able to easily
 //! reference a different state is important
 
-use crate::{MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES};
+#[cfg(feature = "executing")]
+use core::sync::atomic::AtomicBool;
+
+use crate::{MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES, Seconds};
 
 use heapless::Vec;
 
@@ -73,8 +76,20 @@ pub enum StateTransition<'s> {
 
 pub struct Command {
     pub object: crate::CommandObject,
-    pub setting: crate::ObjectState,
-    pub delay: f32,
+    pub state: crate::ObjectState,
+    pub delay: Seconds,
     #[cfg(feature = "executing")]
     pub was_executed: AtomicBool,
+}
+
+impl From<&crate::Command> for Command {
+    fn from(c: &crate::Command) -> Self {
+        Self {
+            object: c.object,
+            state: c.state,
+            delay: c.delay,
+            #[cfg(feature = "executing")]
+            was_executed: AtomicBool::new(false),
+        }
+    }
 }

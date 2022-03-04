@@ -1,4 +1,6 @@
-use crate::{index, reference};
+use crate::index::StateIndex;
+use crate::{index, reference, MAX_STATES};
+
 use alloc::alloc;
 use alloc_traits::{Layout, LocalAlloc, NonZeroLayout};
 use core::mem::{align_of, size_of, MaybeUninit};
@@ -48,6 +50,69 @@ pub fn indices_to_refs(
     Some(result)
 }
 
+/// Returns the index of `val` inside `slice` if present.
+/// Returns None if `val` was not found in `slice`
+pub fn get_index<T>(slice: &[&T], val: &T) -> Option<usize> {
+    for (i, cmp) in slice.iter().copied().enumerate() {
+        if cmp as *const T == val as *const T {
+            return Some(i);
+        }
+    }
+    None
+}
+
+/// Returns the index of `val` inside `slice` if present.
+/// Returns None if `val` was not found in `slice`
+pub fn get_state_index<T>(slice: &[&T], val: &T) -> Option<StateIndex> {
+    // SAFETY: `val` was found in `slice` at index `i`, so it is a valid index
+    get_index(slice, val).map(|i| unsafe { StateIndex::new_unchecked(i) })
+}
+
+fn transition_ref_to_index(
+    transition: &reference::StateTransition<'_>,
+    states: &[&reference::State<'_>],
+) -> index::StateTransition {
+    match transition {
+        reference::StateTransition::Abort(state) => {
+            let index = get_state_index(states, state).unwrap();
+            index::StateTransition::Abort(index)
+        }
+        reference::StateTransition::Transition(state) => {
+            let index = get_state_index(states, state).unwrap();
+            index::StateTransition::Abort(index)
+        }
+    }
+}
+
 pub fn refs_to_indices(config: &reference::ConfigFile) -> index::ConfigFile {
+    use heapless::Vec;
+
+    let mut states: Vec<_, MAX_STATES> = config
+        .states
+        .iter()
+        .map(|a| index::State::new(Vec::new(), Vec::new(), None))
+        .collect();
+
+    for (dst_state, src_state) in states.iter_mut().zip(config.states.iter().copied()) {
+        dst_state.timeout = src_state.timeout.as_ref().map(|src_timeout| {
+            let transition = transition_ref_to_index(&src_timeout.transition, &config.states);
+            index::Timeout::new(src_timeout.time, transition)
+        });
+
+        for src_check in src_state.checks {
+            let transition = transition_ref_to_index(&src_check.transition, &config.states);
+            let check = index::Check {
+                object: src_check.object,
+                condition: src_check.condition,
+                transition,
+            };
+            dst_state.checks.push(check).unwrap();
+        }
+
+        for src_command in src_state.commands.iter() {
+            dst_state.commands.push((*src_command).into());
+        }
+    }
+
     todo!()
 }

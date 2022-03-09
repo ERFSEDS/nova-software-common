@@ -2,17 +2,20 @@
 
 extern crate alloc;
 
-pub mod conversions;
 pub mod index;
-pub mod reference;
 
-pub use conversions::indices_to_refs;
-
-pub const MAX_STATES: usize = 16;
-pub const MAX_CHECKS_PER_STATE: usize = 3;
-pub const MAX_COMMANDS_PER_STATE: usize = 3;
+pub use index::{Index, StateIndex, CheckIndex, CommandIndex};
 
 use serde::{Deserialize, Serialize};
+use heapless::Vec;
+use core::sync::atomic::AtomicBool;
+
+pub const MAX_STATES: usize = 16;
+pub const MAX_CHECKS: usize = 64;
+pub const MAX_COMMANDS: usize = 32;
+
+pub const MAX_CHECKS_PER_STATE: usize = 4;
+pub const MAX_COMMANDS_PER_STATE: usize = 4;
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
 pub struct Seconds(f32);
@@ -59,7 +62,7 @@ pub enum CommandObject {
 }
 
 /// An action that takes place at a specific time after the state containing this is entered
-#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Command {
     /// The object that this command will act upon
     pub object: CommandObject,
@@ -69,6 +72,10 @@ pub struct Command {
 
     /// How long after the state activates to execute this command
     pub delay: Seconds,
+
+    #[cfg(feature = "executing")]
+    /// Indicates weather or not this command has ben executed yet
+    pub was_executed: AtomicBool,
 }
 
 impl Command {
@@ -77,16 +84,96 @@ impl Command {
             object,
             state,
             delay,
+            #[cfg(feature = "executing")]
+            was_executed: AtomicBool::new(false),
         }
     }
 }
 
-impl From<&crate::reference::Command> for Command {
-    fn from(c: &crate::reference::Command) -> Self {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ConfigFile {
+    pub default_state: StateIndex,
+    pub states: Vec<State, MAX_STATES>,
+    pub checks: Vec<Check, MAX_CHECKS>,
+    pub commands: Vec<Command, MAX_COMMANDS>,
+}
+
+/// A state that the rocket/flight computer can be in
+///
+/// This should be things like Armed, Stage1, Stage2, Safe, etc.
+///
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct State {
+    //pub name: String<16>,
+    pub checks: Vec<CheckIndex, MAX_CHECKS_PER_STATE>,
+    pub commands: Vec<CommandIndex, MAX_COMMANDS_PER_STATE>,
+    pub timeout: Option<Timeout>,
+}
+
+impl State {
+    pub fn new(
+        checks: Vec<CheckIndex, MAX_CHECKS_PER_STATE>,
+        commands: Vec<CommandIndex, MAX_COMMANDS_PER_STATE>,
+        timeout: Option<Timeout>,
+    ) -> Self {
         Self {
-            object: c.object,
-            state: c.state,
-            delay: c.delay,
+            checks,
+            commands,
+            timeout,
         }
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
+pub struct Timeout {
+    /// Time in seconds to wait before transitioning
+    pub time: f32,
+    /// The transition that is made when the state times out
+    pub transition: StateTransition,
+}
+
+impl Timeout {
+    pub fn new(time: f32, transition: StateTransition) -> Self {
+        Self { time, transition }
+    }
+}
+
+/// A check within a state that is run every time the state is run
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct Check {
+    //pub name: String<16>,
+    pub object: crate::CheckObject,
+    pub condition: crate::CheckCondition,
+    pub transition: StateTransition,
+}
+
+impl Check {
+    pub fn new(
+        object: crate::CheckObject,
+        condition: crate::CheckCondition,
+        transition: StateTransition,
+    ) -> Self {
+        Self {
+            object,
+            condition,
+            transition,
+        }
+    }
+}
+
+/// A state transition due to a check being satisfied
+/// This is how states transition from one to another.
+///
+/// The enum values are the indexes of a state
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
+pub enum StateTransition {
+    /// Represents a safe transition to another state
+    Transition(StateIndex),
+    /// Represents an abort to a safer state if an abort condition was met
+    Abort(StateIndex),
+}
+
+#[test]
+fn test() {
+    assert_eq!(core::mem::size_of::<ConfigFile>(), 0);
 }

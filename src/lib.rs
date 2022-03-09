@@ -1,14 +1,17 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![deny(unsafe_op_in_unsafe_fn)]
 
 extern crate alloc;
 
 pub mod index;
 
-pub use index::{Index, StateIndex, CheckIndex, CommandIndex};
+pub use index::{CheckIndex, CommandIndex, Index, StateIndex};
 
-use serde::{Deserialize, Serialize};
-use heapless::Vec;
+#[cfg(feature = "executing")]
 use core::sync::atomic::AtomicBool;
+
+use heapless::Vec;
+use serde::{Deserialize, Serialize};
 
 pub const MAX_STATES: usize = 16;
 pub const MAX_CHECKS: usize = 64;
@@ -19,6 +22,64 @@ pub const MAX_COMMANDS_PER_STATE: usize = 4;
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
 pub struct Seconds(f32);
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ConfigFile {
+    pub default_state: StateIndex,
+    pub states: Vec<State, MAX_STATES>,
+    pub checks: Vec<Check, MAX_CHECKS>,
+    pub commands: Vec<Command, MAX_COMMANDS>,
+}
+
+impl ConfigFile {
+    pub fn get_state(&self, index: StateIndex) -> &State {
+        let index: usize = index.into();
+        if cfg!(any(debug_assertions, feature = "disable_bounds_checks")) {
+            self.states.get(index).unwrap_or_else(|| {
+                panic!(
+                    "State index out of range: {}, len: {}",
+                    index,
+                    self.states.len()
+                )
+            })
+        } else {
+            // SAFETY: `index` is guarnteed to be in range by the contract of `Index`
+            unsafe { self.states.get_unchecked(index) }
+        }
+    }
+
+    pub fn get_check(&self, index: CheckIndex) -> &Check {
+        let index: usize = index.into();
+        if cfg!(any(debug_assertions, feature = "disable_bounds_checks")) {
+            self.checks.get(index).unwrap_or_else(|| {
+                panic!(
+                    "Check index out of range: {}, len: {}",
+                    index,
+                    self.states.len()
+                )
+            })
+        } else {
+            // SAFETY: `index` is guarnteed to be in range by the contract of `Index`
+            unsafe { self.checks.get_unchecked(index) }
+        }
+    }
+
+    pub fn get_command(&self, index: CheckIndex) -> &Command {
+        let index: usize = index.into();
+        if cfg!(any(debug_assertions, feature = "disable_bounds_checks")) {
+            self.commands.get(index).unwrap_or_else(|| {
+                panic!(
+                    "Command index out of range: {}, len: {}",
+                    index,
+                    self.states.len()
+                )
+            })
+        } else {
+            // SAFETY: `index` is guarnteed to be in range by the contract of `Index`
+            unsafe { self.commands.get_unchecked(index) }
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
 pub enum CheckObject {
@@ -88,14 +149,6 @@ impl Command {
             was_executed: AtomicBool::new(false),
         }
     }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ConfigFile {
-    pub default_state: StateIndex,
-    pub states: Vec<State, MAX_STATES>,
-    pub checks: Vec<Check, MAX_CHECKS>,
-    pub commands: Vec<Command, MAX_COMMANDS>,
 }
 
 /// A state that the rocket/flight computer can be in

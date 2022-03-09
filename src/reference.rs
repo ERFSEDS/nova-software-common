@@ -5,7 +5,9 @@
 #[cfg(feature = "executing")]
 use core::sync::atomic::AtomicBool;
 
-use crate::{MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES, Seconds};
+use core::cell::Cell;
+
+use crate::{frozen::FrozenVec, Seconds, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES};
 
 use heapless::Vec;
 
@@ -27,24 +29,45 @@ impl<'s> Timeout<'s> {
 
 pub struct State<'s> {
     pub id: u8,
-    pub checks: Vec<&'s Check<'s>, MAX_CHECKS_PER_STATE>,
-    pub commands: Vec<&'s Command, MAX_COMMANDS_PER_STATE>,
-    pub timeout: Option<Timeout<'s>>,
+    pub checks: FrozenVec<&'s Check<'s>, MAX_CHECKS_PER_STATE>,
+    pub commands: FrozenVec<&'s Command, MAX_COMMANDS_PER_STATE>,
+    pub timeout: Cell<Option<Timeout<'s>>>,
 }
 
 impl<'s> State<'s> {
-    pub fn new(
+    pub(crate) fn new(id: u8) -> Self {
+        Self {
+            id,
+            checks: FrozenVec::new(),
+            commands: FrozenVec::new(),
+            timeout: Cell::new(None),
+        }
+    }
+
+    pub fn new_complete(
         id: u8,
-        checks: Vec<&'s Check<'s>, MAX_CHECKS_PER_STATE>,
-        commands: Vec<&'s Command, MAX_COMMANDS_PER_STATE>,
+        checks: FrozenVec<&'s Check<'s>, MAX_CHECKS_PER_STATE>,
+        commands: FrozenVec<&'s Command, MAX_COMMANDS_PER_STATE>,
         timeout: Option<Timeout<'s>>,
     ) -> Self {
         Self {
             id,
             checks,
             commands,
-            timeout,
+            timeout: Cell::new(timeout),
         }
+    }
+
+    pub(crate) fn add_check(&self, check: &'s Check<'s>) -> Result<(), &'s Check<'s>> {
+        self.checks.push(check)
+    }
+
+    pub(crate) fn add_command(&self, command: &'s Command) -> Result<(), &'s Command> {
+        self.commands.push(command)
+    }
+
+    pub(crate) fn set_timeout(&self, timeout: Option<Timeout<'s>>) {
+        self.timeout.set(timeout);
     }
 }
 

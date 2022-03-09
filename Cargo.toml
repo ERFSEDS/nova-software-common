@@ -9,6 +9,7 @@ std = ["serde/std"]
 executing = []
 
 [dependencies]
+stable_deref_trait = "1.2.0"
 heapless = { version = "0.7.7", features = ["serde"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 alloc-traits = "0.1.1"

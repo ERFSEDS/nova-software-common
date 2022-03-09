@@ -1,5 +1,5 @@
-use crate::index::StateIndex;
-use crate::{index, reference, MAX_STATES};
+use crate::reference::Check;
+use crate::{index, reference};
 
 use alloc::alloc;
 use alloc_traits::{Layout, LocalAlloc, NonZeroLayout};
@@ -8,8 +8,6 @@ use core::slice;
 
 type State = reference::State<'static>;
 
-/// Converts a serialized config file to a state graph suitable for executing with a state machine.
-/// alloc is used to allocate the memory for the returned slice
 pub fn indices_to_refs(
     config: &index::ConfigFile,
     alloc: &'static dyn LocalAlloc<'static>,
@@ -27,66 +25,96 @@ pub fn indices_to_refs(
     // 1. `mem` is a valid, aligned, non-null pointer
     // 2. `mem` was obtained from a single allocation via [`LocalAlloc::alloc`]
     // 3. `mem` is safe for reads up to `bytes` bytes
-    let uninit: &'static [MaybeUninit<State>] =
-        unsafe { slice::from_raw_parts(mem.ptr.as_ptr() as *const _, len) };
+    // 4. `mem` is only being accessed through this slice, and therefore this mutable reference is
+    //    not aliased
+    let uninit: &'static mut [MaybeUninit<State>] =
+        unsafe { slice::from_raw_parts_mut(mem.ptr.as_ptr() as *mut _, len) };
 
-    // # SAFETY
-    // 1. The non-reference values in `uninit` have been initialized
-    // 2. The reference values in `uninit` have been initialized
+    // Create a new, initialized State at each position in the slice
+    for i in 0..config.states.len() {
+        uninit[i] = MaybeUninit::new(State::new(i as u8));
+    }
 
     // TODO: Change to `MaybeUninit::slice_assume_init_ref` once const_maybe_uninit_assume_init is
     // stabilized
     //
     // See: https://github.com/rust-lang/rust/issues/86722
-    let result = unsafe {
+    let init = unsafe {
         // Code is from slice_assume_init_ref's implementation...
         //
-        // SAFETY: casting slice to a `*const [T]` is safe since the caller guarantees that
+        // SAFETY: casting slice to a `*mut [T]` is safe since the caller guarantees that
         // `slice` is initialized, and`MaybeUninit` is guaranteed to have the same layout as `T`.
-        // The pointer obtained is valid since it refers to memory owned by `slice` which is a
+        // The pointer obtained is valid since it refers to memory owned by `uninit` which is a
         // reference and thus guaranteed to be valid for reads.
         &*(uninit as *const [MaybeUninit<State>] as *const [State])
     };
-    Some(result)
-}
 
-/// Returns the index of `val` inside `slice` if present.
-/// Returns None if `val` was not found in `slice`
-pub fn get_index<T>(slice: &[&T], val: &T) -> Option<usize> {
-    for (i, cmp) in slice.iter().copied().enumerate() {
-        if cmp as *const T == val as *const T {
-            return Some(i);
+    // Now that each state is initialized, we can add the proper checks, commands, and timeouts
+    for (i, state) in config.states.iter().enumerate() {
+        let ref_state = init.get(i).unwrap();
+
+        for check in state.checks.iter() {
+            let transition = transition_index_to_ref(&check.transition, init);
+
+            // Create and add the check
+            let ref_check = Check::new(check.object, check.condition, transition);
+            let ref_check = alloc_struct(ref_check, alloc).unwrap();
+            if let Err(_) = ref_state.add_check(ref_check) {
+                panic!("State checks exceeded maxmimum number of checks allowed");
+            }
+        }
+
+        for command in state.commands.iter() {
+            let ref_command = alloc_struct(command.into(), alloc).unwrap();
+            if let Err(_) = ref_state.add_command(ref_command) {
+                panic!("State commands exceeded maxmimum number of commands allowed");
+            }
+        }
+
+        if let Some(timeout) = &state.timeout {
+            let timeout_transition = transition_index_to_ref(&timeout.transition, init);
+            let ref_timeout = Some(reference::Timeout::new(timeout.time, timeout_transition));
+            ref_state.set_timeout(ref_timeout);
         }
     }
-    None
+
+    Some(init)
 }
 
-/// Returns the index of `val` inside `slice` if present.
-/// Returns None if `val` was not found in `slice`
-pub fn get_state_index<T>(slice: &[&T], val: &T) -> Option<StateIndex> {
-    // SAFETY: `val` was found in `slice` at index `i`, so it is a valid index
-    get_index(slice, val).map(|i| unsafe { StateIndex::new_unchecked(i) })
-}
-
-fn transition_ref_to_index(
-    transition: &reference::StateTransition<'_>,
-    states: &[&reference::State<'_>],
-) -> index::StateTransition {
+fn transition_index_to_ref<'s>(
+    transition: &index::StateTransition,
+    ref_states: &'s [reference::State<'s>],
+) -> reference::StateTransition<'s> {
     match transition {
-        reference::StateTransition::Abort(state) => {
-            let index = get_state_index(states, state).unwrap();
-            index::StateTransition::Abort(index)
+        index::StateTransition::Transition(s) => {
+            let dest_state = ref_states.get::<usize>(s.clone().into()).unwrap();
+            reference::StateTransition::Transition(dest_state)
         }
-        reference::StateTransition::Transition(state) => {
-            let index = get_state_index(states, state).unwrap();
-            index::StateTransition::Abort(index)
+        index::StateTransition::Abort(s) => {
+            let dest_state = ref_states.get::<usize>(s.clone().into()).unwrap();
+            reference::StateTransition::Abort(dest_state)
         }
     }
+}
+
+fn alloc_struct<T>(obj: T, alloc: &'static dyn LocalAlloc<'static>) -> Option<&'static T> {
+    let layout = NonZeroLayout::from_layout(alloc_traits::Layout::new::<T>()).unwrap();
+    let mem = alloc.alloc(layout)?;
+    let ptr: *mut T = mem.ptr.as_ptr() as *mut T;
+
+    // # SAFETY:
+    // `ptr` is a valid, aligned, non-null pointer obtianed from `alloc`
+    // `ptr` was uninitalized before
+    unsafe { ptr.write(obj) };
+
+    // # SAFETY:
+    // `ptr` is a valid pointer with a 'static lifetime obtained from `alloc`
+    Some(unsafe { &*ptr })
 }
 
 pub fn refs_to_indices(config: &reference::ConfigFile) -> index::ConfigFile {
+    /*
     use heapless::Vec;
-
     let mut states: Vec<_, MAX_STATES> = config
         .states
         .iter()
@@ -113,6 +141,7 @@ pub fn refs_to_indices(config: &reference::ConfigFile) -> index::ConfigFile {
             dst_state.commands.push((*src_command).into());
         }
     }
+    */
 
     todo!()
 }

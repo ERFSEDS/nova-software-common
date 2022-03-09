@@ -3,6 +3,7 @@
 extern crate alloc;
 
 pub mod conversions;
+pub mod frozen;
 pub mod index;
 pub mod reference;
 

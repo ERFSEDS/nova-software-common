@@ -1,7 +1,7 @@
 //! State machine data structures that use indices to reference state transitions.
 //! This is needed when the config file is serialized between the verifier and the flight computer.
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 #[repr(transparent)]
@@ -28,7 +28,6 @@ impl From<Index> for usize {
     }
 }
 
-
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct StateIndex(Index);
@@ -51,7 +50,6 @@ impl From<StateIndex> for usize {
     }
 }
 
-
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct CheckIndex(Index);
@@ -73,7 +71,6 @@ impl From<CheckIndex> for usize {
         index.0.into()
     }
 }
-
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 #[repr(transparent)]

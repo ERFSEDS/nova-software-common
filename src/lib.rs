@@ -161,9 +161,8 @@ impl Clone for Command {
 
 impl PartialEq for Command {
     fn eq(&self, other: &Self) -> bool {
-        #[allow(unused_mut)]// Triggered when the #[cfg(...)] below is disabled
-        let mut eq = self.object.eq(&other.object)
-            && self.delay.eq(&other.delay);
+        #[allow(unused_mut)] // Triggered when the #[cfg(...)] below is disabled
+        let mut eq = self.object.eq(&other.object) && self.delay.eq(&other.delay);
 
         #[cfg(feature = "executing")]
         {

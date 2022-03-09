@@ -8,7 +8,7 @@ pub mod index;
 pub use index::{CheckIndex, CommandIndex, Index, StateIndex};
 
 #[cfg(feature = "executing")]
-use core::sync::atomic::AtomicBool;
+use core::sync::atomic::{AtomicBool, Ordering};
 
 use heapless::Vec;
 use serde::{Deserialize, Serialize};
@@ -21,9 +21,9 @@ pub const MAX_CHECKS_PER_STATE: usize = 4;
 pub const MAX_COMMANDS_PER_STATE: usize = 4;
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
-pub struct Seconds(f32);
+pub struct Seconds(pub f32);
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct ConfigFile {
     pub default_state: StateIndex,
     pub states: Vec<State, MAX_STATES>,
@@ -115,11 +115,11 @@ pub enum ObjectState {
 /// An object that a command can act upon
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
 pub enum CommandObject {
-    Pyro1,
-    Pyro2,
-    Pyro3,
-    Beacon,
-    DataRate,
+    Pyro1(bool),
+    Pyro2(bool),
+    Pyro3(bool),
+    Beacon(bool),
+    DataRate(u16),
 }
 
 /// An action that takes place at a specific time after the state containing this is entered
@@ -128,26 +128,51 @@ pub struct Command {
     /// The object that this command will act upon
     pub object: CommandObject,
 
-    /// The new state that the command's object should be in after it is executed
-    pub state: ObjectState,
-
     /// How long after the state activates to execute this command
     pub delay: Seconds,
 
     #[cfg(feature = "executing")]
+    #[serde(skip)]
     /// Indicates weather or not this command has ben executed yet
     pub was_executed: AtomicBool,
 }
 
 impl Command {
-    pub fn new(object: CommandObject, state: ObjectState, delay: Seconds) -> Self {
+    pub fn new(object: CommandObject, delay: Seconds) -> Self {
         Self {
             object,
-            state,
             delay,
             #[cfg(feature = "executing")]
             was_executed: AtomicBool::new(false),
         }
+    }
+}
+
+impl Clone for Command {
+    fn clone(&self) -> Self {
+        Self {
+            object: self.object.clone(),
+            delay: self.delay.clone(),
+            #[cfg(feature = "executing")]
+            was_executed: AtomicBool::new(self.was_executed.load(Ordering::SeqCst)),
+        }
+    }
+}
+
+impl PartialEq for Command {
+    fn eq(&self, other: &Self) -> bool {
+        #[allow(unused_mut)]// Triggered when the #[cfg(...)] below is disabled
+        let mut eq = self.object.eq(&other.object)
+            && self.delay.eq(&other.delay);
+
+        #[cfg(feature = "executing")]
+        {
+            eq &= self
+                .was_executed
+                .load(Ordering::SeqCst)
+                .eq(&other.was_executed.load(Ordering::SeqCst));
+        }
+        eq
     }
 }
 

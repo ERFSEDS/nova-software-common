@@ -16,25 +16,29 @@ pub const MAX_COMMANDS_PER_STATE: usize = 3;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
-pub struct Seconds(f32);
+pub struct Seconds(pub f32);
+
+/// Describes the check for a `native' condition, I.E, a condition that the state machine emulates.
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
+pub struct NativeFlagCondition(pub bool);
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
-pub enum CheckObject {
-    Altitude,
-    Pyro1Continuity,
-    Pyro2Continuity,
-    Pyro3Continuity,
+pub struct PyroContinuityCondition(pub bool);
+
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
+pub enum FloatCondition {
+    GreaterThan(f32),
+    LessThan(f32),
+    Between { upper_bound: f32, lower_bound: f32 },
 }
 
-/// Represents a type of state check
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
-pub enum CheckCondition {
-    FlagSet,
-    FlagUnset,
-    // Equals { value: f32 },
-    GreaterThan { value: f32 },
-    LessThan { value: f32 },
-    Between { upper_bound: f32, lower_bound: f32 },
+pub enum CheckData {
+    Altitude(FloatCondition),
+    ApogeeFlag(NativeFlagCondition),
+    Pyro1Continuity(PyroContinuityCondition),
+    Pyro2Continuity(PyroContinuityCondition),
+    Pyro3Continuity(PyroContinuityCondition),
 }
 
 /// Represents the state that something's value can be, this can be the value a command will set
@@ -52,41 +56,17 @@ pub enum ObjectState {
 /// An object that a command can act upon
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
 pub enum CommandObject {
-    Pyro1,
-    Pyro2,
-    Pyro3,
-    Beacon,
-    DataRate,
+    Pyro1(bool),
+    Pyro2(bool),
+    Pyro3(bool),
+    Beacon(bool),
+    DataRate(u16),
 }
 
-/// An action that takes place at a specific time after the state containing this is entered
-#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
-pub struct Command {
-    /// The object that this command will act upon
-    pub object: CommandObject,
-
-    /// The new state that the command's object should be in after it is executed
-    pub state: ObjectState,
-
-    /// How long after the state activates to execute this command
-    pub delay: Seconds,
-}
-
-impl Command {
-    pub fn new(object: CommandObject, state: ObjectState, delay: Seconds) -> Self {
-        Self {
-            object,
-            state,
-            delay,
-        }
-    }
-}
-
-impl From<&crate::reference::Command> for Command {
+impl From<&crate::reference::Command> for index::Command {
     fn from(c: &crate::reference::Command) -> Self {
         Self {
             object: c.object,
-            state: c.state,
             delay: c.delay,
         }
     }

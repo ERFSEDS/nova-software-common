@@ -35,6 +35,8 @@ pub fn indices_to_refs(
         uninit[i] = MaybeUninit::new(State::new(i as u8));
     }
 
+    // FIXME: actually initialize
+
     // TODO: Change to `MaybeUninit::slice_assume_init_ref` once const_maybe_uninit_assume_init is
     // stabilized
     //
@@ -54,19 +56,28 @@ pub fn indices_to_refs(
         let ref_state = init.get(i).unwrap();
 
         for check in state.checks.iter() {
-            let transition = transition_index_to_ref(&check.transition, init);
+            let transition = check
+                .transition
+                .as_ref()
+                .map(|t| transition_index_to_ref(t, init));
 
             // Create and add the check
-            let ref_check = Check::new(check.object, check.condition, transition);
+            let ref_check = Check::new(check.data, transition);
             let ref_check = alloc_struct(ref_check, alloc).unwrap();
-            if let Err(_) = ref_state.add_check(ref_check) {
+            if let Err(_) = ref_state.checks.push(ref_check) {
+                // The size of `index::State::checks` and `reference::State::checks` is determined
+                // by the same constant, so it is impossible to for one vector to have more
+                // elements than the capacity of the other
                 panic!("State checks exceeded maxmimum number of checks allowed");
             }
         }
 
         for command in state.commands.iter() {
             let ref_command = alloc_struct(command.into(), alloc).unwrap();
-            if let Err(_) = ref_state.add_command(ref_command) {
+            if let Err(_) = ref_state.commands.push(ref_command) {
+                // The size of `index::State::commands` and `reference::State::commands` is determined
+                // by the same constant, so it is impossible to for one vector to have more
+                // elements than the capacity of the other
                 panic!("State commands exceeded maxmimum number of commands allowed");
             }
         }
@@ -74,7 +85,7 @@ pub fn indices_to_refs(
         if let Some(timeout) = &state.timeout {
             let timeout_transition = transition_index_to_ref(&timeout.transition, init);
             let ref_timeout = Some(reference::Timeout::new(timeout.time, timeout_transition));
-            ref_state.set_timeout(ref_timeout);
+            ref_state.timeout.set(ref_timeout);
         }
     }
 

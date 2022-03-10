@@ -6,10 +6,11 @@
 use core::sync::atomic::AtomicBool;
 
 use core::cell::Cell;
-
-use crate::{frozen::FrozenVec, Seconds, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES};
-
 use heapless::Vec;
+
+use crate::{
+    frozen::FrozenVec, index, Seconds, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES,
+};
 
 pub struct ConfigFile<'s> {
     pub default_state: &'s State<'s>,
@@ -57,37 +58,16 @@ impl<'s> State<'s> {
             timeout: Cell::new(timeout),
         }
     }
-
-    pub(crate) fn add_check(&self, check: &'s Check<'s>) -> Result<(), &'s Check<'s>> {
-        self.checks.push(check)
-    }
-
-    pub(crate) fn add_command(&self, command: &'s Command) -> Result<(), &'s Command> {
-        self.commands.push(command)
-    }
-
-    pub(crate) fn set_timeout(&self, timeout: Option<Timeout<'s>>) {
-        self.timeout.set(timeout);
-    }
 }
 
 pub struct Check<'s> {
-    pub object: crate::CheckObject,
-    pub condition: crate::CheckCondition,
-    pub transition: StateTransition<'s>,
+    pub data: crate::CheckData,
+    pub transition: Option<StateTransition<'s>>,
 }
 
 impl<'s> Check<'s> {
-    pub fn new(
-        object: crate::CheckObject,
-        condition: crate::CheckCondition,
-        transition: StateTransition<'s>,
-    ) -> Self {
-        Self {
-            object,
-            condition,
-            transition,
-        }
+    pub fn new(data: crate::CheckData, transition: Option<StateTransition<'s>>) -> Self {
+        Self { data, transition }
     }
 }
 
@@ -99,17 +79,15 @@ pub enum StateTransition<'s> {
 
 pub struct Command {
     pub object: crate::CommandObject,
-    pub state: crate::ObjectState,
     pub delay: Seconds,
     #[cfg(feature = "executing")]
     pub was_executed: AtomicBool,
 }
 
-impl From<&crate::Command> for Command {
-    fn from(c: &crate::Command) -> Self {
+impl From<&index::Command> for Command {
+    fn from(c: &index::Command) -> Self {
         Self {
             object: c.object,
-            state: c.state,
             delay: c.delay,
             #[cfg(feature = "executing")]
             was_executed: AtomicBool::new(false),

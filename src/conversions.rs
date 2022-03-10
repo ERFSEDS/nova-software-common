@@ -157,3 +157,124 @@ pub fn refs_to_indices(config: &reference::ConfigFile) -> index::ConfigFile {
 
     todo!()
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        index::{Check, Command, ConfigFile, State, StateIndex, StateTransition, Timeout},
+        indices_to_refs, CheckData, CommandObject, FloatCondition, NativeFlagCondition,
+        PyroContinuityCondition, Seconds, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES,
+    };
+    use heapless::Vec;
+    use static_alloc::Bump;
+
+    const STATE_SIZE: usize = core::mem::size_of::<State>() * MAX_STATES;
+    const CHECK_SIZE: usize = core::mem::size_of::<Check>() * MAX_CHECKS_PER_STATE * MAX_STATES;
+    const COMMAND_SIZE: usize =
+        core::mem::size_of::<Command>() * MAX_COMMANDS_PER_STATE * MAX_STATES;
+    const BUMP_SIZE: usize = STATE_SIZE + CHECK_SIZE + COMMAND_SIZE;
+
+    static A: Bump<[u8; BUMP_SIZE]> = Bump::uninit();
+
+    #[test]
+    fn test_indices_to_refs() {
+        let mut states = Vec::new();
+
+        //
+        // [[states]]
+        // name = "Safe"
+        //
+        let safe = State::new(Vec::new(), Vec::new(), None);
+        states.push(safe).unwrap();
+        // # SAFETY: We just pushed `safe`
+        let safe_idx = unsafe { StateIndex::new_unchecked(states.len() as u8 - 1) };
+
+        //
+        // [[states]]
+        // name = "Descent"
+        //
+        // [[states.commands]]
+        // object = "DataRate"
+        // value = 20
+        // time = 0.0
+        //
+        let mut descent_commands = Vec::new();
+        descent_commands
+            .push(Command::new(CommandObject::DataRate(20), Seconds(0.0)))
+            .unwrap();
+        let descent = State::new(Vec::new(), descent_commands, None);
+        states.push(descent).unwrap();
+        // # SAFETY: We just pushed `descent`
+        let descent_idx = unsafe { StateIndex::new_unchecked(states.len() as u8 - 1) };
+
+        //
+        // [[states]]
+        // name = "Flight"
+        //
+        // [[states.checks]]
+        // name = "ApogeeCheck"
+        // object = "ApogeeFlag"
+        // type = "Flag"
+        // value = false
+        // transition = "Descent"
+        //
+        let mut flight_checks = Vec::new();
+        flight_checks
+            .push(Check::new(
+                CheckData::ApogeeFlag(NativeFlagCondition(true)),
+                Some(StateTransition::Transition(descent_idx)),
+            ))
+            .unwrap();
+        let flight = State::new(flight_checks, Vec::new(), None);
+        states.push(flight).unwrap();
+        // # SAFETY: We just pushed `flight`
+        let flight_idx = unsafe { StateIndex::new_unchecked(states.len() as u8 - 1) };
+
+        let mut launch_checks = Vec::new();
+        launch_checks
+            .push(Check::new(
+                CheckData::Altitude(FloatCondition::GreaterThan(200.0)),
+                Some(StateTransition::Transition(flight_idx)),
+            ))
+            .unwrap();
+        let launch = State::new(launch_checks, Vec::new(), None);
+        states.push(launch).unwrap();
+        // # SAFETY: We just pushed `launch`
+        let launch_idx = unsafe { StateIndex::new_unchecked(states.len() as u8 - 1) };
+
+        let mut poweron_checks = Vec::new();
+        poweron_checks
+            .push(Check::new(
+                CheckData::Pyro1Continuity(PyroContinuityCondition(false)),
+                Some(StateTransition::Abort(safe_idx)),
+            ))
+            .unwrap();
+        poweron_checks
+            .push(Check::new(
+                CheckData::Pyro2Continuity(PyroContinuityCondition(false)),
+                Some(StateTransition::Abort(safe_idx)),
+            ))
+            .unwrap();
+        poweron_checks
+            .push(Check::new(
+                CheckData::Pyro3Continuity(PyroContinuityCondition(false)),
+                Some(StateTransition::Abort(safe_idx)),
+            ))
+            .unwrap();
+        let poweron = State::new(
+            poweron_checks,
+            Vec::new(),
+            Some(Timeout::new(1.0, StateTransition::Transition(launch_idx))),
+        );
+        states.push(poweron).unwrap();
+        // # SAFETY: We just pushed `poweron`
+        let poweron_idx = unsafe { StateIndex::new_unchecked(states.len() as u8 - 1) };
+
+        let config = ConfigFile {
+            default_state: poweron_idx,
+            states,
+        };
+
+        let _reference_cfg = indices_to_refs(&config, &A).unwrap();
+    }
+}

@@ -14,7 +14,7 @@ pub struct ConfigFile {
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 #[repr(transparent)]
-/// The which references a particural state
+/// The which references a particular state
 pub struct StateIndex(u8);
 
 impl StateIndex {

@@ -36,7 +36,7 @@ impl<T: StableDeref, const N: usize> FrozenVec<T, N> {
     /// Returns back the `item` if the vector is full
     pub fn push(&self, item: T) -> Result<(), T> {
         if self.len() < self.capacity() {
-            // SAFETY: We have already performed the bounds check to see if we have exceeded our
+            // # SAFETY: We have already performed the bounds check to see if we have exceeded our
             // capacity
             unsafe { self.push_unchecked(item) }
             Ok(())
@@ -50,21 +50,22 @@ impl<T: StableDeref, const N: usize> FrozenVec<T, N> {
     pub fn push_get(&self, item: T) -> Result<&T::Target, T> {
         self.push(item)?;
 
-        // SAFETY: We have just pushed an element and if it failed, it would have already returned.
+        // # SAFETY: We have just pushed an element and if it failed, it would have already returned.
         // Therefore self.len() - 1 is at least 0
         unsafe { Ok(self.get_unchecked(self.len() - 1)) }
     }
 
     /// Appends an `item` to the back of the collection
     ///
-    /// # SAFETY:
+    /// # Safety
+    ///
     /// This assumes the vector is not full
     pub unsafe fn push_unchecked(&self, item: T) {
         debug_assert!(!self.is_full());
 
         let current_len = self.len();
 
-        // SAFETY:
+        // # SAFETY:
         // 1. This FrozenVec is !Send, so we are the only ones accessing this UnsafeCell.
         // 2. The buffer consists of MaybeUninit<T> instead of raw T, so we can directly write into
         //    the array instead of using ptr::write because MaybeUninit will never drop the inner
@@ -72,7 +73,7 @@ impl<T: StableDeref, const N: usize> FrozenVec<T, N> {
         let buffer = &mut *(self.buffer.get());
         *buffer.get_unchecked_mut(current_len) = MaybeUninit::new(item);
 
-        // SAFETY: We are the only ones currently borrowing len, as it is impossible to do from
+        // # SAFETY: We are the only ones currently borrowing len, as it is impossible to do from
         // safe code, and we give up our mutable reference here immediately, as does any other
         // function on Self
         let len = &mut *(self.len.get());
@@ -81,23 +82,28 @@ impl<T: StableDeref, const N: usize> FrozenVec<T, N> {
 
     /// Returns a reference to an element
     pub fn get(&self, index: usize) -> Option<&T::Target> {
-        // SAFETY:
-        // 1. We never borrow our internal buffer, and instead use raw pointers to index it as a
-        //    slice, allowing us to dereference one of our buffers' T: StableDeref's which are
-        //    themselves borrowed instead of any part of our buffer
-        unsafe {
-            let buffer = self.buffer.get();
-            (*buffer).get(index).map(|x| x.assume_init_ref().deref())
+        if index < self.len() {
+            // # SAFETY:
+            // 1. We never borrow our internal buffer, and instead use raw pointers to index it as a
+            //    slice, allowing us to dereference one of our buffers' T: StableDeref's which are
+            //    themselves borrowed instead of any part of our buffer
+            // 2. We have also manually performed our bounds check
+            unsafe {
+                let buffer = self.buffer.get();
+                Some((*buffer).get_unchecked(index).assume_init_ref().deref())
+            }
+        } else {
+            None
         }
     }
 
     /// Returns a reference to an element, without doing bounds checking.
     ///
-    /// # SAFETY:
+    /// # Safety
     ///
     /// `index` must be in bounds, i.e. it must be less than `self.len()`
     pub unsafe fn get_unchecked(&self, index: usize) -> &T::Target {
-        // SAFETY:
+        // # SAFETY:
         // 1. We never borrow our internal buffer, and instead use raw pointers to index it as a
         //    slice, allowing us to dereference one of our buffers' T: StableDeref's which are
         //    themselves borrowed instead of any part of our buffer
@@ -129,7 +135,7 @@ impl<T: StableDeref, const N: usize> FrozenVec<T, N> {
     /// can be stored.
     #[inline]
     pub fn len(&self) -> usize {
-        // SAFETY: Here we completely bypass creating a reference and only read the value from
+        // # SAFETY: Here we completely bypass creating a reference and only read the value from
         // self.len. Therefore this will always be valid
         unsafe { *self.len.get() }
     }

@@ -31,11 +31,12 @@ pub fn indices_to_refs(
         unsafe { slice::from_raw_parts_mut(mem.ptr.as_ptr() as *mut _, len) };
 
     // Create a new, initialized State at each position in the slice
-    for i in 0..config.states.len() {
-        uninit[i] = MaybeUninit::new(State::new(i as u8));
+    for (i, state) in uninit.iter_mut().enumerate() {
+        *state = MaybeUninit::new(State::new(i as u8));
     }
 
-    // FIXME: actually initialize
+    // # SAFETY: All of the slice's MaybeUninit<T> are initialized from the for loop above.
+    // Therefore it is safe to call the below code, as per the code's safety requirements
 
     // TODO: Change to `MaybeUninit::slice_assume_init_ref` once const_maybe_uninit_assume_init is
     // stabilized
@@ -44,7 +45,7 @@ pub fn indices_to_refs(
     let init = unsafe {
         // Code is from slice_assume_init_ref's implementation...
         //
-        // SAFETY: casting slice to a `*mut [T]` is safe since the caller guarantees that
+        // # SAFETY: casting slice to a `*const [T]` is safe since the caller guarantees that
         // `slice` is initialized, and`MaybeUninit` is guaranteed to have the same layout as `T`.
         // The pointer obtained is valid since it refers to memory owned by `uninit` which is a
         // reference and thus guaranteed to be valid for reads.
@@ -64,7 +65,7 @@ pub fn indices_to_refs(
             // Create and add the check
             let ref_check = Check::new(check.data, transition);
             let ref_check = alloc_struct(ref_check, alloc).unwrap();
-            if let Err(_) = ref_state.checks.push(ref_check) {
+            if ref_state.checks.push(ref_check).is_err() {
                 // The size of `index::State::checks` and `reference::State::checks` is determined
                 // by the same constant, so it is impossible to for one vector to have more
                 // elements than the capacity of the other
@@ -74,7 +75,7 @@ pub fn indices_to_refs(
 
         for command in state.commands.iter() {
             let ref_command = alloc_struct(command.into(), alloc).unwrap();
-            if let Err(_) = ref_state.commands.push(ref_command) {
+            if ref_state.commands.push(ref_command).is_err() {
                 // The size of `index::State::commands` and `reference::State::commands` is determined
                 // by the same constant, so it is impossible to for one vector to have more
                 // elements than the capacity of the other
@@ -98,11 +99,11 @@ fn transition_index_to_ref<'s>(
 ) -> reference::StateTransition<'s> {
     match transition {
         index::StateTransition::Transition(s) => {
-            let dest_state = ref_states.get::<usize>(s.clone().into()).unwrap();
+            let dest_state = ref_states.get::<usize>((*s).into()).unwrap();
             reference::StateTransition::Transition(dest_state)
         }
         index::StateTransition::Abort(s) => {
-            let dest_state = ref_states.get::<usize>(s.clone().into()).unwrap();
+            let dest_state = ref_states.get::<usize>((*s).into()).unwrap();
             reference::StateTransition::Abort(dest_state)
         }
     }

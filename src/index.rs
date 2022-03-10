@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 #[repr(transparent)]
-/// An index into a particural `Vec` inside [`ConfigFile`]
-pub struct Index(u8);
+/// An index into a particural `Vec` inside a [`ConfigFile`]
+pub struct Index(pub(crate) u8);
 
 impl Index {
     /// Creates a new `StateIndex` without checking that `index` is valid. The validity of `index`
@@ -15,8 +15,12 @@ impl Index {
     ///
     /// # Safety
     /// The caller must guarntee that index is valid within the context of the value it is
-    /// referencing. Reads into Vec's will assume this index is in bounds and use [`get_unchecked`]
-    /// for performanace reasons
+    /// referencing. Use of an invalid index in a context that would lead to an out of bounds
+    /// access will cause the rocket to panic and fail. 
+    ///
+    /// Use of an incorrect index here will never lead to memory unsafety, however this method is
+    /// still marked unsafe as it will cause a catastrophic failure of the rocket if the caller is
+    /// carefree about calling this function
     pub unsafe fn new_unchecked(index: u8) -> Self {
         Self(index)
     }
@@ -30,66 +34,42 @@ impl From<Index> for usize {
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 #[repr(transparent)]
-pub struct StateIndex(Index);
+pub struct StateIndex(pub(crate) Index);
 
 impl StateIndex {
-    /// See [`Index::new_unchecked`]
-    ///
+    /// Creates a new `StateIndex` without checking its validity
     /// # Safety
-    /// The caller must guarntee that index is within bounds for the state in the states array that
-    /// it refers to
+    /// See [`Index::new_unchecked`]
     pub unsafe fn new_unchecked(index: u8) -> Self {
         // SAFETY: Caller taks responsibility for the contract of `Index::new_unchecked`
         unsafe { Self(Index::new_unchecked(index)) }
     }
 }
 
-impl From<StateIndex> for usize {
-    fn from(index: StateIndex) -> Self {
-        index.0.into()
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 #[repr(transparent)]
-pub struct CheckIndex(Index);
+pub struct CheckIndex(pub(crate) Index);
 
 impl CheckIndex {
-    /// See [`Index::new_unchecked`]
-    ///
+    /// Creates a new `StateIndex` without checking its validity
     /// # Safety
-    /// The caller must guarntee that index is within bounds for the command in the commands array that
-    /// it refers to
+    /// See [`Index::new_unchecked`] 
     pub unsafe fn new_unchecked(index: u8) -> Self {
-        // SAFETY: Caller taks responsibility for the contract of `Index::new_unchecked`
+        // SAFETY: Caller takes responsibility for the contract of `Index::new_unchecked`
         unsafe { Self(Index::new_unchecked(index)) }
-    }
-}
-
-impl From<CheckIndex> for usize {
-    fn from(index: CheckIndex) -> Self {
-        index.0.into()
     }
 }
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 #[repr(transparent)]
-pub struct CommandIndex(Index);
+pub struct CommandIndex(pub(crate) Index);
 
 impl CommandIndex {
-    /// See [`Index::new_unchecked`]
-    ///
+    /// Creates a new `StateIndex` without checking its validity
     /// # Safety
-    /// The caller must guarntee that index is within bounds for the command in the commands array that
-    /// it refers to
+    /// See [`Index::new_unchecked`] 
     pub unsafe fn new_unchecked(index: u8) -> Self {
         // SAFETY: Caller taks responsibility for the contract of `Index::new_unchecked`
         unsafe { Self(Index::new_unchecked(index)) }
-    }
-}
-
-impl From<CommandIndex> for usize {
-    fn from(index: CommandIndex) -> Self {
-        index.0.into()
     }
 }

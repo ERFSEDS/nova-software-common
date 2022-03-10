@@ -33,51 +33,18 @@ pub struct ConfigFile {
 
 impl ConfigFile {
     pub fn get_state(&self, index: StateIndex) -> &State {
-        let index: usize = index.into();
-        if cfg!(any(debug_assertions, feature = "disable_bounds_checks")) {
-            self.states.get(index).unwrap_or_else(|| {
-                panic!(
-                    "State index out of range: {}, len: {}",
-                    index,
-                    self.states.len()
-                )
-            })
-        } else {
-            // SAFETY: `index` is guarnteed to be in range by the contract of `Index`
-            unsafe { self.states.get_unchecked(index) }
-        }
+        let index = index.0.0 as usize;
+        &self.states[index]
     }
 
     pub fn get_check(&self, index: CheckIndex) -> &Check {
-        let index: usize = index.into();
-        if cfg!(any(debug_assertions, feature = "disable_bounds_checks")) {
-            self.checks.get(index).unwrap_or_else(|| {
-                panic!(
-                    "Check index out of range: {}, len: {}",
-                    index,
-                    self.states.len()
-                )
-            })
-        } else {
-            // SAFETY: `index` is guarnteed to be in range by the contract of `Index`
-            unsafe { self.checks.get_unchecked(index) }
-        }
+        let index = index.0.0 as usize;
+        &self.checks[index] 
     }
 
     pub fn get_command(&self, index: CheckIndex) -> &Command {
-        let index: usize = index.into();
-        if cfg!(any(debug_assertions, feature = "disable_bounds_checks")) {
-            self.commands.get(index).unwrap_or_else(|| {
-                panic!(
-                    "Command index out of range: {}, len: {}",
-                    index,
-                    self.states.len()
-                )
-            })
-        } else {
-            // SAFETY: `index` is guarnteed to be in range by the contract of `Index`
-            unsafe { self.commands.get_unchecked(index) }
-        }
+        let index = index.0.0 as usize;
+        &self.commands[index]
     }
 }
 
@@ -92,11 +59,10 @@ pub enum CheckObject {
 /// Represents a type of state check
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
 pub enum CheckCondition {
-    FlagSet,
-    FlagUnset,
+    FlagEq(bool),
     // Equals { value: f32 },
-    GreaterThan { value: f32 },
-    LessThan { value: f32 },
+    GreaterThan(f32),
+    LessThan(f32),
     Between { upper_bound: f32, lower_bound: f32 },
 }
 

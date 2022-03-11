@@ -2,15 +2,10 @@
 //! This module's types are uses as opposed to [`index`] during runtime, when being able to easily
 //! reference a different state is important
 
-#[cfg(feature = "executing")]
-use core::sync::atomic::AtomicBool;
-
 use core::cell::Cell;
 use heapless::Vec;
 
-use crate::{
-    frozen::FrozenVec, index, Seconds, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES,
-};
+use crate::{frozen::FrozenVec, Command, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES};
 
 pub struct ConfigFile<'s> {
     pub default_state: &'s State<'s>,
@@ -75,22 +70,4 @@ impl<'s> Check<'s> {
 pub enum StateTransition<'s> {
     Transition(&'s State<'s>),
     Abort(&'s State<'s>),
-}
-
-pub struct Command {
-    pub object: crate::CommandObject,
-    pub delay: Seconds,
-    #[cfg(feature = "executing")]
-    pub was_executed: AtomicBool,
-}
-
-impl From<&index::Command> for Command {
-    fn from(c: &index::Command) -> Self {
-        Self {
-            object: c.object,
-            delay: c.delay,
-            #[cfg(feature = "executing")]
-            was_executed: AtomicBool::new(false),
-        }
-    }
 }

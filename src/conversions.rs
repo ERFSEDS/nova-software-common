@@ -74,7 +74,7 @@ pub fn indices_to_refs(
         }
 
         for command in state.commands.iter() {
-            let ref_command = alloc_struct(command.into(), alloc).unwrap();
+            let ref_command = alloc_struct(command.clone(), alloc).unwrap();
             if ref_state.commands.push(ref_command).is_err() {
                 // The size of `index::State::commands` and `reference::State::commands` is determined
                 // by the same constant, so it is impossible to for one vector to have more
@@ -161,8 +161,8 @@ pub fn refs_to_indices(config: &reference::ConfigFile) -> index::ConfigFile {
 #[cfg(test)]
 mod tests {
     use crate::{
-        index::{Check, Command, ConfigFile, State, StateIndex, StateTransition, Timeout},
-        indices_to_refs, CheckData, CommandObject, FloatCondition, NativeFlagCondition,
+        index::{Check, ConfigFile, State, StateIndex, StateTransition, Timeout},
+        indices_to_refs, CheckData, Command, CommandObject, FloatCondition, NativeFlagCondition,
         PyroContinuityCondition, Seconds, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES,
     };
     use heapless::Vec;
@@ -230,6 +230,17 @@ mod tests {
         // # SAFETY: We just pushed `flight`
         let flight_idx = unsafe { StateIndex::new_unchecked(states.len() as u8 - 1) };
 
+        //
+        // [[states]]
+        // name = "Launch"
+        //
+        // [[states.checks]]
+        // name = "AltitudeCheck"
+        // object = "Altitude"
+        // type = "FloatCondition"
+        // value = "200.0"
+        // transition = "Flight"
+        //
         let mut launch_checks = Vec::new();
         launch_checks
             .push(Check::new(
@@ -242,6 +253,31 @@ mod tests {
         // # SAFETY: We just pushed `launch`
         let launch_idx = unsafe { StateIndex::new_unchecked(states.len() as u8 - 1) };
 
+        //
+        // [[states]]
+        // name = "Poweron"
+        //
+        // [[states.checks]]
+        // name = "Pyro1Check"
+        // object = "Pyro1Continuity"
+        // type = "PyroContinuityCondition"
+        // value = false
+        // abort = "Safe"
+        //
+        // [[states.checks]]
+        // name = "Pyro2Check"
+        // object = "Pyro2Continuity"
+        // type = "PyroContinuityCondition"
+        // value = false
+        // abort = "Safe"
+        //
+        // [[states.checks]]
+        // name = "Pyro3Check"
+        // object = "Pyro3Continuity"
+        // type = "PyroContinuityCondition"
+        // value = false
+        // abort = "Safe"
+        //
         let mut poweron_checks = Vec::new();
         poweron_checks
             .push(Check::new(
@@ -272,9 +308,50 @@ mod tests {
 
         let config = ConfigFile {
             default_state: poweron_idx,
-            states,
+            states: states.clone(),
         };
 
-        let _reference_cfg = indices_to_refs(&config, &A).unwrap();
+        let reference_cfg = indices_to_refs(&config, &A).unwrap();
+
+        // Test to see if the "reference states" match the "index states" in every way
+        for (i, (state, idx_state)) in reference_cfg.iter().zip(states.iter()).enumerate() {
+            assert_eq!(state.id, i as u8);
+            assert_eq!(state.checks.len(), idx_state.checks.len());
+            assert_eq!(state.commands.len(), idx_state.commands.len());
+
+            for (check, idx_check) in state.checks.iter().zip(idx_state.checks.iter()) {
+                assert_eq!(check.data, idx_check.data);
+
+                assert_eq!(check.transition.is_some(), idx_check.transition.is_some());
+
+                if let Some(transition) = check.transition {
+                    let idx_transition = idx_check.transition.unwrap();
+
+                    match transition {
+                        crate::reference::StateTransition::Transition(s) => match idx_transition {
+                            crate::index::StateTransition::Transition(idx) => {
+                                assert_eq!(s.id, usize::from(idx) as u8);
+                            }
+                            crate::index::StateTransition::Abort(_) => {
+                                panic!();
+                            }
+                        },
+                        crate::reference::StateTransition::Abort(s) => match idx_transition {
+                            crate::index::StateTransition::Abort(idx) => {
+                                assert_eq!(s.id, usize::from(idx) as u8);
+                            }
+                            crate::index::StateTransition::Transition(_) => {
+                                panic!();
+                            }
+                        },
+                    }
+                }
+            }
+
+            for (command, idx_command) in state.commands.iter().zip(idx_state.commands.iter()) {
+                assert_eq!(command.object, idx_command.object);
+                assert_eq!(command.delay, idx_command.delay);
+            }
+        }
     }
 }

@@ -15,6 +15,9 @@ pub const MAX_COMMANDS_PER_STATE: usize = 3;
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "executing")]
+use core::sync::atomic::AtomicBool;
+
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
 pub struct Seconds(pub f32);
 
@@ -63,11 +66,27 @@ pub enum CommandObject {
     DataRate(u16),
 }
 
-impl From<&crate::reference::Command> for index::Command {
-    fn from(c: &crate::reference::Command) -> Self {
+/// An action that takes place at a specific time after the state containing this is entered
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
+pub struct Command {
+    /// The object that this command will act upon
+    pub object: crate::CommandObject,
+
+    /// How long after the state activates to execute this command
+    pub delay: crate::Seconds,
+
+    /// If this command has already executed
+    #[cfg(feature = "executing")]
+    pub was_executed: AtomicBool,
+}
+
+impl Command {
+    pub fn new(object: crate::CommandObject, delay: crate::Seconds) -> Self {
         Self {
-            object: c.object,
-            delay: c.delay,
+            object,
+            delay,
+            #[cfg(feature = "executing")]
+            was_executed: AtomicBool::new(false),
         }
     }
 }

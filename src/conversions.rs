@@ -124,40 +124,6 @@ fn alloc_struct<T>(obj: T, alloc: &'static dyn LocalAlloc<'static>) -> Option<&'
     Some(unsafe { &*ptr })
 }
 
-pub fn refs_to_indices(config: &reference::ConfigFile) -> index::ConfigFile {
-    /*
-    use heapless::Vec;
-    let mut states: Vec<_, MAX_STATES> = config
-        .states
-        .iter()
-        .map(|a| index::State::new(Vec::new(), Vec::new(), None))
-        .collect();
-
-    for (dst_state, src_state) in states.iter_mut().zip(config.states.iter().copied()) {
-        dst_state.timeout = src_state.timeout.as_ref().map(|src_timeout| {
-            let transition = transition_ref_to_index(&src_timeout.transition, &config.states);
-            index::Timeout::new(src_timeout.time, transition)
-        });
-
-        for src_check in src_state.checks {
-            let transition = transition_ref_to_index(&src_check.transition, &config.states);
-            let check = index::Check {
-                object: src_check.object,
-                condition: src_check.condition,
-                transition,
-            };
-            dst_state.checks.push(check).unwrap();
-        }
-
-        for src_command in src_state.commands.iter() {
-            dst_state.commands.push((*src_command).into());
-        }
-    }
-    */
-
-    todo!()
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{

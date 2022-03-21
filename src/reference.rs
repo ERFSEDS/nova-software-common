@@ -2,12 +2,11 @@
 //! This module's types are uses as opposed to [`index`] during runtime, when being able to easily
 //! reference a different state is important
 
-#[cfg(feature = "executing")]
+use core::cell::Cell;
 use core::sync::atomic::AtomicBool;
-
-use crate::{MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES, Seconds};
-
 use heapless::Vec;
+
+use crate::{frozen::FrozenVec, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES};
 
 pub struct ConfigFile<'s> {
     pub default_state: &'s State<'s>,
@@ -27,44 +26,44 @@ impl<'s> Timeout<'s> {
 
 pub struct State<'s> {
     pub id: u8,
-    pub checks: Vec<&'s Check<'s>, MAX_CHECKS_PER_STATE>,
-    pub commands: Vec<&'s Command, MAX_COMMANDS_PER_STATE>,
-    pub timeout: Option<Timeout<'s>>,
+    pub checks: FrozenVec<&'s Check<'s>, MAX_CHECKS_PER_STATE>,
+    pub commands: FrozenVec<&'s Command, MAX_COMMANDS_PER_STATE>,
+    pub timeout: Cell<Option<Timeout<'s>>>,
 }
 
 impl<'s> State<'s> {
-    pub fn new(
+    pub(crate) fn new(id: u8) -> Self {
+        Self {
+            id,
+            checks: FrozenVec::new(),
+            commands: FrozenVec::new(),
+            timeout: Cell::new(None),
+        }
+    }
+
+    pub fn new_complete(
         id: u8,
-        checks: Vec<&'s Check<'s>, MAX_CHECKS_PER_STATE>,
-        commands: Vec<&'s Command, MAX_COMMANDS_PER_STATE>,
+        checks: FrozenVec<&'s Check<'s>, MAX_CHECKS_PER_STATE>,
+        commands: FrozenVec<&'s Command, MAX_COMMANDS_PER_STATE>,
         timeout: Option<Timeout<'s>>,
     ) -> Self {
         Self {
             id,
             checks,
             commands,
-            timeout,
+            timeout: Cell::new(timeout),
         }
     }
 }
 
 pub struct Check<'s> {
-    pub object: crate::CheckObject,
-    pub condition: crate::CheckCondition,
-    pub transition: StateTransition<'s>,
+    pub data: crate::CheckData,
+    pub transition: Option<StateTransition<'s>>,
 }
 
 impl<'s> Check<'s> {
-    pub fn new(
-        object: crate::CheckObject,
-        condition: crate::CheckCondition,
-        transition: StateTransition<'s>,
-    ) -> Self {
-        Self {
-            object,
-            condition,
-            transition,
-        }
+    pub fn new(data: crate::CheckData, transition: Option<StateTransition<'s>>) -> Self {
+        Self { data, transition }
     }
 }
 
@@ -74,21 +73,24 @@ pub enum StateTransition<'s> {
     Abort(&'s State<'s>),
 }
 
+/// An action that takes place at a specific time after the state containing this is entered
+#[derive(Debug)]
 pub struct Command {
+    /// The object that this command will act upon
     pub object: crate::CommandObject,
-    pub state: crate::ObjectState,
-    pub delay: Seconds,
-    #[cfg(feature = "executing")]
+
+    /// How long after the state activates to execute this command
+    pub delay: crate::Seconds,
+
+    /// If this command has already executed
     pub was_executed: AtomicBool,
 }
 
-impl From<&crate::Command> for Command {
-    fn from(c: &crate::Command) -> Self {
+impl Command {
+    pub fn new(object: crate::CommandObject, delay: crate::Seconds) -> Self {
         Self {
-            object: c.object,
-            state: c.state,
-            delay: c.delay,
-            #[cfg(feature = "executing")]
+            object,
+            delay,
             was_executed: AtomicBool::new(false),
         }
     }

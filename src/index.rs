@@ -14,7 +14,7 @@ pub struct ConfigFile {
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 #[repr(transparent)]
-/// The which references a particural state
+/// The which references a particular state
 pub struct StateIndex(u8);
 
 impl StateIndex {
@@ -30,8 +30,8 @@ impl StateIndex {
     /// This wrapper simply allows us to feel better about unwrapping `get()`s that use index at
     /// other places in the codebase because we assume constructing an invalid `StateIndex` is
     /// impossible
-    pub unsafe fn new_unchecked(index: usize) -> Self {
-        StateIndex(index as u8)
+    pub unsafe fn new_unchecked(index: u8) -> Self {
+        StateIndex(index)
     }
 }
 
@@ -49,14 +49,14 @@ impl From<StateIndex> for usize {
 pub struct State {
     //pub name: String<16>,
     pub checks: Vec<Check, MAX_CHECKS_PER_STATE>,
-    pub commands: Vec<crate::Command, MAX_COMMANDS_PER_STATE>,
+    pub commands: Vec<Command, MAX_COMMANDS_PER_STATE>,
     pub timeout: Option<Timeout>,
 }
 
 impl State {
     pub fn new(
         checks: Vec<Check, MAX_CHECKS_PER_STATE>,
-        commands: Vec<crate::Command, MAX_COMMANDS_PER_STATE>,
+        commands: Vec<Command, MAX_COMMANDS_PER_STATE>,
         timeout: Option<Timeout>,
     ) -> Self {
         Self {
@@ -85,22 +85,13 @@ impl Timeout {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Check {
     //pub name: String<16>,
-    pub object: crate::CheckObject,
-    pub condition: crate::CheckCondition,
-    pub transition: StateTransition,
+    pub data: crate::CheckData,
+    pub transition: Option<StateTransition>,
 }
 
 impl Check {
-    pub fn new(
-        object: crate::CheckObject,
-        condition: crate::CheckCondition,
-        transition: StateTransition,
-    ) -> Self {
-        Self {
-            object,
-            condition,
-            transition,
-        }
+    pub fn new(data: crate::CheckData, transition: Option<StateTransition>) -> Self {
+        Self { data, transition }
     }
 }
 
@@ -116,7 +107,27 @@ pub enum StateTransition {
     Abort(StateIndex),
 }
 
-#[test]
-fn test() {
-    assert_eq!(core::mem::size_of::<ConfigFile>(), 0);
+/// An action that takes place at a specific time after the state containing this is entered
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
+pub struct Command {
+    /// The object that this command will act upon
+    pub object: crate::CommandObject,
+
+    /// How long after the state activates to execute this command
+    pub delay: crate::Seconds,
+}
+
+impl Command {
+    pub fn new(object: crate::CommandObject, delay: crate::Seconds) -> Self {
+        Self { object, delay }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    #[cfg(target_pointer_width = "32")]
+    fn test() {
+        assert_eq!(core::mem::size_of::<crate::index::ConfigFile>(), 1608);
+    }
 }

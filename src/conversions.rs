@@ -54,7 +54,7 @@ pub fn indices_to_refs(
 
     // Now that each state is initialized, we can add the proper checks, commands, and timeouts
     for (i, state) in config.states.iter().enumerate() {
-        let ref_state = init.get(i).unwrap();
+        let ref_state = &init[i];
 
         for check in state.checks.iter() {
             let transition = check
@@ -69,7 +69,7 @@ pub fn indices_to_refs(
                 // The size of `index::State::checks` and `reference::State::checks` is determined
                 // by the same constant, so it is impossible to for one vector to have more
                 // elements than the capacity of the other
-                panic!("State checks exceeded maxmimum number of checks allowed");
+                unreachable!("State checks exceeded maxmimum number of checks allowed");
             }
         }
 
@@ -79,7 +79,7 @@ pub fn indices_to_refs(
                 // The size of `index::State::commands` and `reference::State::commands` is determined
                 // by the same constant, so it is impossible to for one vector to have more
                 // elements than the capacity of the other
-                panic!("State commands exceeded maxmimum number of commands allowed");
+                unreachable!("State commands exceeded maxmimum number of commands allowed");
             }
         }
 

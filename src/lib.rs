@@ -67,7 +67,7 @@ pub enum CommandObject {
 }
 
 /// An action that takes place at a specific time after the state containing this is entered
-#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Command {
     /// The object that this command will act upon
     pub object: crate::CommandObject,

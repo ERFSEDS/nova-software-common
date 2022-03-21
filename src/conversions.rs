@@ -74,7 +74,7 @@ pub fn indices_to_refs(
         }
 
         for command in state.commands.iter() {
-            let ref_command = alloc_struct(*command, alloc).unwrap();
+            let ref_command = alloc_struct(command.clone(), alloc).unwrap();
             if ref_state.commands.push(ref_command).is_err() {
                 // The size of `index::State::commands` and `reference::State::commands` is determined
                 // by the same constant, so it is impossible to for one vector to have more

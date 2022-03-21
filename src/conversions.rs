@@ -74,7 +74,7 @@ pub fn indices_to_refs(
         }
 
         for command in state.commands.iter() {
-            let ref_command = alloc_struct(command.clone(), alloc).unwrap();
+            let ref_command = alloc_struct(command_index_to_ref(command), alloc).unwrap();
             if ref_state.commands.push(ref_command).is_err() {
                 // The size of `index::State::commands` and `reference::State::commands` is determined
                 // by the same constant, so it is impossible to for one vector to have more
@@ -91,6 +91,10 @@ pub fn indices_to_refs(
     }
 
     Some(init)
+}
+
+fn command_index_to_ref(command: &index::Command) -> reference::Command {
+    reference::Command::new(command.object, command.delay)
 }
 
 fn transition_index_to_ref<'s>(
@@ -127,17 +131,18 @@ fn alloc_struct<T>(obj: T, alloc: &'static dyn LocalAlloc<'static>) -> Option<&'
 #[cfg(test)]
 mod tests {
     use crate::{
-        index::{Check, ConfigFile, State, StateIndex, StateTransition, Timeout},
-        indices_to_refs, CheckData, Command, CommandObject, FloatCondition, NativeFlagCondition,
+        index::{Check, Command, ConfigFile, State, StateIndex, StateTransition, Timeout},
+        indices_to_refs, CheckData, CommandObject, FloatCondition, NativeFlagCondition,
         PyroContinuityCondition, Seconds, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES,
     };
     use heapless::Vec;
     use static_alloc::Bump;
 
-    const STATE_SIZE: usize = core::mem::size_of::<State>() * MAX_STATES;
-    const CHECK_SIZE: usize = core::mem::size_of::<Check>() * MAX_CHECKS_PER_STATE * MAX_STATES;
+    const STATE_SIZE: usize = core::mem::size_of::<crate::reference::State>() * MAX_STATES;
+    const CHECK_SIZE: usize =
+        core::mem::size_of::<crate::reference::Check>() * MAX_CHECKS_PER_STATE * MAX_STATES;
     const COMMAND_SIZE: usize =
-        core::mem::size_of::<Command>() * MAX_COMMANDS_PER_STATE * MAX_STATES;
+        core::mem::size_of::<crate::reference::Command>() * MAX_COMMANDS_PER_STATE * MAX_STATES;
     const BUMP_SIZE: usize = STATE_SIZE + CHECK_SIZE + COMMAND_SIZE;
 
     static A: Bump<[u8; BUMP_SIZE]> = Bump::uninit();

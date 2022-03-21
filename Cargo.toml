@@ -6,7 +6,6 @@ edition = "2021"
 [features]
 default = ["std"]
 std = ["serde/std"]
-executing = []
 
 [dependencies]
 stable_deref_trait = "1.2.0"

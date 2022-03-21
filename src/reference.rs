@@ -3,9 +3,10 @@
 //! reference a different state is important
 
 use core::cell::Cell;
+use core::sync::atomic::AtomicBool;
 use heapless::Vec;
 
-use crate::{frozen::FrozenVec, Command, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES};
+use crate::{frozen::FrozenVec, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES};
 
 pub struct ConfigFile<'s> {
     pub default_state: &'s State<'s>,
@@ -70,4 +71,27 @@ impl<'s> Check<'s> {
 pub enum StateTransition<'s> {
     Transition(&'s State<'s>),
     Abort(&'s State<'s>),
+}
+
+/// An action that takes place at a specific time after the state containing this is entered
+#[derive(Debug)]
+pub struct Command {
+    /// The object that this command will act upon
+    pub object: crate::CommandObject,
+
+    /// How long after the state activates to execute this command
+    pub delay: crate::Seconds,
+
+    /// If this command has already executed
+    pub was_executed: AtomicBool,
+}
+
+impl Command {
+    pub fn new(object: crate::CommandObject, delay: crate::Seconds) -> Self {
+        Self {
+            object,
+            delay,
+            was_executed: AtomicBool::new(false),
+        }
+    }
 }

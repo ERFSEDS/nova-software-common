@@ -1,7 +1,7 @@
 //! State machine data structures that use indices to reference state transitions.
 //! This is needed when the config file is serialized between the verifier and the flight computer.
 
-use crate::{Command, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES};
+use crate::{MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES};
 
 use heapless::Vec;
 use serde::{Deserialize, Serialize};
@@ -105,6 +105,22 @@ pub enum StateTransition {
     Transition(StateIndex),
     /// Represents an abort to a safer state if an abort condition was met
     Abort(StateIndex),
+}
+
+/// An action that takes place at a specific time after the state containing this is entered
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
+pub struct Command {
+    /// The object that this command will act upon
+    pub object: crate::CommandObject,
+
+    /// How long after the state activates to execute this command
+    pub delay: crate::Seconds,
+}
+
+impl Command {
+    pub fn new(object: crate::CommandObject, delay: crate::Seconds) -> Self {
+        Self { object, delay }
+    }
 }
 
 #[cfg(test)]

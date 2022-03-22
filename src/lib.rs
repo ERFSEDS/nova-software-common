@@ -71,3 +71,47 @@ impl From<&crate::reference::Command> for index::Command {
         }
     }
 }
+
+/// An object that a command can act upon
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
+pub enum CommandKind {
+    Pyro1,
+    Pyro2,
+    Pyro3,
+    Beacon,
+    DataRate,
+}
+
+impl CommandKind {
+    /// Adds a bool state to this `CommandKind`, assuming that is able to store a bool. This
+    /// function will panic if self is `CommandKind::DataRate`, as the inner state data type for
+    /// this is u16
+    pub fn with_bool(self, val: bool) -> CommandObject {
+        match self {
+            CommandKind::Pyro1 => CommandObject::Pyro1(val),
+            CommandKind::Pyro2 => CommandObject::Pyro2(val),
+            CommandKind::Pyro3 => CommandObject::Pyro3(val),
+            CommandKind::Beacon => CommandObject::Beacon(val),
+            CommandKind::DataRate => panic!("cannot add bool to self when self is a DataRate"),
+        }
+    }
+
+    pub fn with_u16(self, val: u16) -> CommandObject {
+        let msg = match self {
+            CommandKind::Pyro1 => "pyro1",
+            CommandKind::Pyro2 => "pyro2",
+            CommandKind::Pyro3 => "pyro3",
+            CommandKind::Beacon => "beacon",
+            CommandKind::DataRate => return CommandObject::DataRate(val),
+        };
+        panic!("cannot add u16 when self is an {msg}")
+    }
+
+    pub fn with_state(self, state: ObjectState) -> CommandObject {
+        match state {
+            ObjectState::Flag(val) => self.with_bool(val),
+            ObjectState::Short(val) => self.with_u16(val),
+            ObjectState::Float(_val) => todo!(),
+        }
+    }
+}

@@ -41,6 +41,15 @@ pub enum CheckData {
     Pyro3Continuity(PyroContinuityCondition),
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum CheckKind {
+    Altitude,
+    ApogeeFlag,//TODO: Maybe have a native flag variant with another enum for the kind of flag?
+    Pyro1Continuity,
+    Pyro2Continuity,
+    Pyro3Continuity,
+}
+
 /// Represents the state that something's value can be, this can be the value a command will set
 /// something to, or a value that a check will receive
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]

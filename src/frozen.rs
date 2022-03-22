@@ -7,7 +7,7 @@ use stable_deref_trait::StableDeref;
 ///
 /// use frozen::FrozenVec;
 ///
-/// let vec = FrozenVec::<u32, 8>::new();
+/// let vec = FrozenVec::<&u32, 8>::new();
 ///
 /// let x = 2;
 /// let y = 4;
@@ -15,7 +15,7 @@ use stable_deref_trait::StableDeref;
 /// vec.push(&x);
 /// vec.push(&y);
 ///
-pub struct FrozenVec<T, const N: usize> {
+pub struct FrozenVec<T: StableDeref, const N: usize> {
     buffer: UnsafeCell<[MaybeUninit<T>; N]>,
     len: UnsafeCell<usize>,
 }
@@ -149,7 +149,7 @@ impl<T: StableDeref, const N: usize> FrozenVec<T, N> {
 /// Iterator over FrozenVec, obtained via `.iter()`
 ///
 /// It is safe to push to the vector during iteration
-pub struct Iter<'a, T, const N: usize> {
+pub struct Iter<'a, T: StableDeref, const N: usize> {
     vec: &'a FrozenVec<T, N>,
     idx: usize,
 }

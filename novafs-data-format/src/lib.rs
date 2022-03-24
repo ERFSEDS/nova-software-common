@@ -102,6 +102,9 @@ pub enum Data {
     /// Data sample from the barometer
     BarometerData(BarometerData),
 
+    ///
+    HighGAccelerometerData(HighGAccelerometerData),
+
     /// Indicates how many ticks are in a second.
     /// Ticks are the units used to convey time on the flight computer.
     ///
@@ -137,4 +140,66 @@ pub struct Message {
 
     /// The data contained within this message
     pub data: Data,
+}
+
+impl Message {
+    pub fn new(ticks_since_last_message: u16, data: Data) -> Self {
+        Self {
+            ticks_since_last_message,
+            data,
+        }
+    }
+}
+
+#[test]
+fn a() {
+    let messages = vec![
+        Message::new(
+            0,
+            Data::BarometerCalibration(BarometerCalibration {
+                pressure_sensitivity: 6969,
+                pressure_offset: 420,
+                temperature_coefficient_ps: 666,
+                temperature_coefficient_po: 1427,
+                reference_temperature: 1337,
+                temperature_coefficient_t: 129,
+            }),
+        ),
+        Message::new(1, Data::TicksPerSecond(1_000_000)),
+        Message::new(
+            10,
+            Data::BarometerData(BarometerData {
+                temprature: 76542,
+                pressure: 75462,
+            }),
+        ),
+        Message::new(
+            746,
+            Data::HighGAccelerometerData(HighGAccelerometerData {
+                x: -7427,
+                y: 32753,
+                z: 165,
+            }),
+        ),
+        Message::new(1000, Data::TicksPerSecond(1)),
+        Message::new(u16::MAX, Data::Heartbeat(u32::MAX)),
+        Message::new(
+            1314,
+            Data::BarometerData(BarometerData {
+                temprature: 76542,
+                pressure: 75462,
+            }),
+        ),
+        Message::new(
+            0,
+            Data::HighGAccelerometerData(HighGAccelerometerData {
+                x: -7427,
+                y: 32753,
+                z: 165,
+            }),
+        ),
+    ];
+    let json = serde_json::to_string(&messages).unwrap();
+    println!("{}", json);
+    panic!();
 }

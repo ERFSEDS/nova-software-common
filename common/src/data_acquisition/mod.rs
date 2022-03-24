@@ -1,5 +1,3 @@
-#![cfg_attr(not(feature = "std"), no_std)]
-
 use std::time::{Duration, Instant};
 
 use data_format::{CheckKind, ObjectState};
@@ -121,7 +119,7 @@ impl DurationBased {
 
     fn read(&self) -> ObjectState {
         let now = Instant::now();
-        if self.transition_at > now {
+        if now > self.transition_at {
             self.eventual
         } else {
             self.initial

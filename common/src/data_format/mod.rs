@@ -1,11 +1,9 @@
-#![cfg_attr(not(feature = "std"), no_std)]
-
-extern crate alloc;
-
 pub mod conversions;
 pub mod frozen;
 pub mod index;
 pub mod reference;
+
+use serde::{Deserialize, Serialize};
 
 pub use conversions::indices_to_refs;
 
@@ -13,17 +11,44 @@ pub const MAX_STATES: usize = 16;
 pub const MAX_CHECKS_PER_STATE: usize = 3;
 pub const MAX_COMMANDS_PER_STATE: usize = 3;
 
-use serde::{Deserialize, Serialize};
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, Eq, PartialEq, PartialOrd, Ord)]
+pub struct Seconds(pub ordered_float::NotNan<f32>);
 
-#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
-pub struct Seconds(pub f32);
+impl Seconds {
+    /// Creates a new Seconds wrapper from the given number of seconds
+    ///
+    /// # Panics
+    ///
+    /// If `seconds` is Nan
+    pub fn new(seconds: f32) -> Self {
+        Self(ordered_float::NotNan::new(seconds).unwrap())
+    }
+}
+
+impl std::fmt::Display for Seconds {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}s", self.0))
+    }
+}
 
 /// Describes the check for a `native' condition, I.E, a condition that the state machine emulates.
-#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 pub struct NativeFlagCondition(pub bool);
 
-#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
+impl PartialEq<bool> for NativeFlagCondition {
+    fn eq(&self, other: &bool) -> bool {
+        self.0 == *other
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 pub struct PyroContinuityCondition(pub bool);
+
+impl PartialEq<bool> for PyroContinuityCondition {
+    fn eq(&self, other: &bool) -> bool {
+        self.0 == *other
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
 pub enum FloatCondition {
@@ -41,10 +66,22 @@ pub enum CheckData {
     Pyro3Continuity(PyroContinuityCondition),
 }
 
+impl CheckData {
+    pub fn kind(&self) -> CheckKind {
+        match self {
+            CheckData::Altitude(_) => CheckKind::Altitude,
+            CheckData::ApogeeFlag(_) => CheckKind::Altitude,
+            CheckData::Pyro1Continuity(_) => CheckKind::Pyro1Continuity,
+            CheckData::Pyro2Continuity(_) => CheckKind::Pyro2Continuity,
+            CheckData::Pyro3Continuity(_) => CheckKind::Pyro3Continuity,
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub enum CheckKind {
     Altitude,
-    ApogeeFlag,//TODO: Maybe have a native flag variant with another enum for the kind of flag?
+    ApogeeFlag, //TODO: Maybe have a native flag variant with another enum for the kind of flag?
     Pyro1Continuity,
     Pyro2Continuity,
     Pyro3Continuity,
@@ -55,7 +92,7 @@ pub enum CheckKind {
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
 pub enum ObjectState {
     /// An On/Off True/False for a GPIO for example
-    Flag(bool),
+    Bool(bool),
     /// A floating-point value
     Float(f32),
     // TODO: We may want to rename/remove this, but this was for the DataRate
@@ -72,8 +109,8 @@ pub enum CommandObject {
     DataRate(u16),
 }
 
-impl From<&crate::reference::Command> for index::Command {
-    fn from(c: &crate::reference::Command) -> Self {
+impl From<&reference::Command> for index::Command {
+    fn from(c: &reference::Command) -> Self {
         Self {
             object: c.object,
             delay: c.delay,
@@ -118,7 +155,7 @@ impl CommandKind {
 
     pub fn with_state(self, state: ObjectState) -> CommandObject {
         match state {
-            ObjectState::Flag(val) => self.with_bool(val),
+            ObjectState::Bool(val) => self.with_bool(val),
             ObjectState::Short(val) => self.with_u16(val),
             ObjectState::Float(_val) => todo!(),
         }

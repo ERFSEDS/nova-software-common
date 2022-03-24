@@ -9,15 +9,15 @@
 //!
 //! Because standardizing time on embedded system is hard, this format uses a ticks based system,
 //! where the tick rate can be changed inside the format itself. This gives the flight computer
-//! lots of flexability to manage its time, while being able to very percisely report exactly when
+//! lots of flexibility to manage its time, while being able to very percisely report exactly when
 //! data samples were recorded.
-//! Tick 0 is when the flight computer wakes up and there are 1024 ticks per second by default.
+//! Tick 0 is when the flight computer wakes up.
 //!
-//! The data stream generally starts with [`BarometerCalibration`], so that the
-//! ground station has the calibration constants it needs, and [`Data::TicksPerSecond`] to
-//! establish a custom data rate other than 1024.
+//! The data stream always starts with a ['Data::TicksPerSecond'] to establish the initial data
+//! rate. Then it is generally followed with [`BarometerCalibration`], so that the
+//! ground station has the calibration constants it needs.
 //! This is because these actions are done when the flight computer wakes up.
-//! The order of messages follows very closley with what the flight computer is doing at any one time,
+//! The order of messages follows very closely with what the flight computer is doing at any one time,
 //! because the current implementation simply reads data, and then immediately records it.
 //!
 //! # Associated State
@@ -26,20 +26,23 @@
 //! rate) that would effect the reconstruction of the data format is always emitted and must be
 //! handled.
 //! Because of this, decoding implementations must maintain a certain abount of state and update it
-//! as new state messages are recieved in order to accuratly reconstruct what happened from the
+//! as new state messages are recieved in order to accurately reconstruct what happened from the
 //! flight computer's point of view.
 //!
 //! # Assumptions
 //!
 //! This is the gereral format, however implementations must not make assumptions about the order
 //! or quantity of each message type, with the following exceptions:
-//! 1. [`Data::BarometerData`] messages will only follow after [`Data::BarometerCalibration`] messages have been
+//! 1. A ['Data::TicksPerSecond'] message will always be the first message sent.
+//! 2. [`Data::BarometerData`] messages will only follow after [`Data::BarometerCalibration`] messages have been
 //!    sent before.
 //!
 //! # Ticks State Example
 //!
-//! If the first message is a calibration message with [`Message::ticks_since_last_message`] set to 1024,
-//! because the default tick rate is 1024, we know that this message was emitted 1 second after
+//! If the first message is the 'TicksPerSecond' message with the value 1024, then the data rate is
+//! 1024 ticks per second.
+//! If the second message is a calibration message with [`Message::ticks_since_last_message`] set to 1024,
+//! because the current tick rate is 1024, we know that this message was emitted 1 second after
 //! flight computer woke up.
 //! If the second message is a `TicksPerSecond` message which changes the tick rate to 1,000,000/s,
 //! and `ticks_since_last_message` is set to 1024, this change happened 1 second after the calibration
@@ -52,14 +55,14 @@
 //! # Format on the Wire
 //!
 //! The format of the actual data on the wire is unstable and subject to change, however we plan
-//! to use postcard plus serde with these structs until a more efficent bit for bit format can be
+//! to use Postcard plus Serde with these structs until a more efficent bit for bit format can be
 //! implemented. Perhaps we could make a crate that automates this process using smaller bit wrapper
 //! types U14, U20, u6, etc. to give hints to a proc macro so that enum tags can be packed with data
 //! more efficently.
 
 use serde::{Deserialize, Serialize};
 
-/// Calibration values from the barometer's internal memroy,
+/// Calibration values from the barometer's internal memory,
 /// used to convert raw values into unit values
 #[derive(Serialize, Deserialize)]
 pub struct BarometerCalibration {
@@ -105,8 +108,7 @@ pub enum Data {
     /// Indicates how many ticks are in a second.
     /// Ticks are the units used to convey time on the flight computer.
     ///
-    /// Before a `TicksPerSecond` message is recieved to indicate otherwise, there are 1024 ticks
-    /// in a second.
+    /// NOTE: Always the first message sent
     ///
     /// Each tick `1/current_ticks_per_second` should be added to the reconstructed time, and new
     /// `TicksPerSecond` messages must replace the current `current_ticks_per_second`, so that the
@@ -132,7 +134,8 @@ pub enum Data {
 pub struct Message {
     /// The number of ticks since the last message in the stream.
     ///
-    /// If this is the first message, this tells the number of ticks since MCU startup.
+    /// If this is the first 'TicksPerSecond' message, this tells the number of ticks
+    /// (in the units provided) since MCU startup.
     pub ticks_since_last_message: u16,
 
     /// The data contained within this message

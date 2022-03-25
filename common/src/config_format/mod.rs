@@ -1,13 +1,13 @@
-pub mod conversions;
-pub mod frozen;
+mod conversions;
+mod frozen;
 pub mod index;
 pub mod reference;
 
-use std::ops::Deref;
+pub use conversions::indices_to_refs;
+pub use frozen::{FrozenVec, Iter};
 
 use serde::{Deserialize, Serialize};
-
-pub use conversions::indices_to_refs;
+use std::ops::Deref;
 
 pub const MAX_STATES: usize = 16;
 pub const MAX_CHECKS_PER_STATE: usize = 3;

@@ -6,3 +6,5 @@ pub mod control;
 pub mod data_acquisition;
 pub mod state_machine;
 pub mod telemetry;
+
+pub use state_machine::StateMachine;

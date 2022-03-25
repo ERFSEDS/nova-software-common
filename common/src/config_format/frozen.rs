@@ -25,6 +25,7 @@ use core::mem::MaybeUninit;
 /// // Because all operations can be done using shared references, `FrozenVec` is `!Sync` to
 /// // enforce aliasing concerns
 /// ```
+
 // Internally each element is an UnsafeCell<MaybeUninit<T>>. We need the inner MaybeUninit<>
 // because unoccupied entries are uninitalized for performance reasons. We keep track of how many
 // elements are initilased with `len`
@@ -34,19 +35,21 @@ use core::mem::MaybeUninit;
 // mutable refernce to `len` in order to increment it, as well as a mutable reference to the
 // UnsafeCell at offset `i` in order to move the to-be-pushed value into it. Because FrozenVec is
 // `!Sync`, this can never happen from mutiple threads at the same time, therefore the mutable
-// references that alias `len` and `buf[i]` are safe.
+// references that alias `len` and `buf[i]` are unique.
 //
 // Because items cannot be removed, the only time `buf[i]` will be mutated is when an item is
 // pushed there, which is guarnteed to be _before_ a user could call `get(i)` and get a reference
-// to it, because before the call to `push`, `get(i)` would return `None`, as `i` is out of bounds.
+// to it, because before the call to `push(x)`, `get(i)` would return `None`, as `i` is out of bounds.
 //
-// Additionally we never give out mutable references to the elements inside `FrozenVec`, otherwise
-// a user could spam `get_mut(i)` and invoke UB.
+// Additionally we never give out mutable references to the elements inside `FrozenVec` with
+// somthing like `get_mut`, otherwise a user could spam `get_mut(i)` and invoke UB.
 pub struct FrozenVec<T, const N: usize> {
     /// The elements within this frozen vec.
     ///
     /// Only elements 0..len are initalized
     buf: [UnsafeCell<MaybeUninit<T>>; N],
+
+    /// The number of initalized elements in `buf`. Only increases
     len: UnsafeCell<usize>,
 }
 
@@ -101,7 +104,7 @@ impl<T, const N: usize> FrozenVec<T, N> {
 
         // # SAFETY:
         // 1. `Self` is !Send, so the increment of `i` creates a new unique index for this `FrozenVec`
-        // 2. Because `i` is unique are the only ones accessing the UnsafeCell at index `i`
+        // 2. Because `i` is unique, we are the only ones accessing the UnsafeCell at index `i`
         // (shared references may exist to other elements, but they are inside other UnsafeCells)
         let elem = unsafe { &mut *self.buf[i].get() };
 

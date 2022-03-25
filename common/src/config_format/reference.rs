@@ -5,7 +5,7 @@
 use core::cell::Cell;
 use heapless::Vec;
 
-use super::{frozen::FrozenVec, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES};
+use super::{frozen::FrozenVec, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES, Seconds};
 
 pub struct ConfigFile<'s> {
     pub default_state: &'s State<'s>,
@@ -14,12 +14,12 @@ pub struct ConfigFile<'s> {
 
 #[derive(Copy, Clone)]
 pub struct Timeout<'s> {
-    pub time: f32,
+    pub time: Seconds,
     pub transition: StateTransition<'s>,
 }
 
 impl<'s> Timeout<'s> {
-    pub fn new(time: f32, transition: StateTransition<'s>) -> Self {
+    pub fn new(time: Seconds, transition: StateTransition<'s>) -> Self {
         Self { time, transition }
     }
 }

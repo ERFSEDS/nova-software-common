@@ -16,7 +16,9 @@ pub fn indices_to_refs(
     let align = align_of::<State>();
 
     // Unwrap always succeeds because align was obtained from `align_of`
-    let layout: Layout = core::alloc::Layout::from_size_align(bytes, align).unwrap().into();
+    let layout: Layout = core::alloc::Layout::from_size_align(bytes, align)
+        .unwrap()
+        .into();
     let layout = NonZeroLayout::from_layout(layout).unwrap();
     let mem = alloc.alloc(layout)?;
 
@@ -173,8 +175,9 @@ mod tests {
         //
         let mut descent_commands = Vec::new();
         descent_commands
-            .push(Command::new(CommandValue::DataRate(20), Seconds(0.0)))
+            .push(Command::new(CommandValue::DataRate(20), Seconds::new(0.0)))
             .unwrap();
+
         let descent = State::new(Vec::new(), descent_commands, None);
         states.push(descent).unwrap();
         // # SAFETY: We just pushed `descent`
@@ -273,7 +276,7 @@ mod tests {
         let poweron = State::new(
             poweron_checks,
             Vec::new(),
-            Some(Timeout::new(1.0, StateTransition::Transition(launch_idx))),
+            Some(Timeout::new(Seconds::new(1.0), StateTransition::Transition(launch_idx))),
         );
         states.push(poweron).unwrap();
         // # SAFETY: We just pushed `poweron`

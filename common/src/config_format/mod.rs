@@ -3,6 +3,8 @@ pub mod frozen;
 pub mod index;
 pub mod reference;
 
+use std::ops::Deref;
+
 use serde::{Deserialize, Serialize};
 
 pub use conversions::indices_to_refs;
@@ -12,7 +14,7 @@ pub const MAX_CHECKS_PER_STATE: usize = 3;
 pub const MAX_COMMANDS_PER_STATE: usize = 3;
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, Eq, PartialEq, PartialOrd, Ord)]
-pub struct Seconds(pub ordered_float::NotNan<f32>);
+pub struct Seconds(ordered_float::NotNan<f32>);
 
 impl Seconds {
     /// Creates a new Seconds wrapper from the given number of seconds
@@ -22,6 +24,19 @@ impl Seconds {
     /// If `seconds` is Nan
     pub fn new(seconds: f32) -> Self {
         Self(ordered_float::NotNan::new(seconds).unwrap())
+    }
+}
+
+impl Into<f32> for Seconds {
+    fn into(self) -> f32 {
+        *self.0
+    }
+}
+
+impl Deref for Seconds {
+    type Target = f32;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

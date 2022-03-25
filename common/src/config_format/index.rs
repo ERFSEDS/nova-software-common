@@ -1,7 +1,7 @@
 //! State machine data structures that use indices to reference state transitions.
 //! This is needed when the config file is serialized between the verifier and the flight computer.
 
-use super::{MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES};
+use super::{Seconds, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES};
 
 use heapless::Vec;
 use serde::{Deserialize, Serialize};
@@ -70,13 +70,13 @@ impl State {
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
 pub struct Timeout {
     /// Time in seconds to wait before transitioning
-    pub time: f32,
+    pub time: Seconds,
     /// The transition that is made when the state times out
     pub transition: StateTransition,
 }
 
 impl Timeout {
-    pub fn new(time: f32, transition: StateTransition) -> Self {
+    pub fn new(time: Seconds, transition: StateTransition) -> Self {
         Self { time, transition }
     }
 }
@@ -119,7 +119,10 @@ pub struct Command {
 
 impl Command {
     pub fn new(inner: super::CommandValue, delay: super::Seconds) -> Self {
-        Self { value: inner, delay }
+        Self {
+            value: inner,
+            delay,
+        }
     }
 }
 

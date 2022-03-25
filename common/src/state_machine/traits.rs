@@ -3,7 +3,7 @@
 use crate::config_format::Seconds;
 
 // TODO: switch to #[cfg(ed)] implementation
-#[derive(Debug, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Timestamp(usize);
 
 pub trait GenericTimestamp: std::fmt::Display + std::fmt::Debug + Clone {
@@ -54,7 +54,7 @@ pub trait GpioWrite {
 pub struct Gpio(u16);
 
 impl GpioWrite for Gpio {
-    fn write(&mut self, val: bool) {
+    fn write(&mut self, _val: bool) {
         todo!()
     }
 }
@@ -64,4 +64,3 @@ impl GpioRead for Gpio {
         todo!()
     }
 }
-

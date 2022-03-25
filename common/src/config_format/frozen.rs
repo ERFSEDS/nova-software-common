@@ -6,7 +6,7 @@ use core::mem::MaybeUninit;
 /// Called frozen because items can never be removed.
 ///
 /// ```
-/// use frozen::FrozenVec;
+/// use common::config_format::frozen::FrozenVec;
 ///
 /// let vec = FrozenVec::<u32, 8>::new();
 ///
@@ -19,8 +19,8 @@ use core::mem::MaybeUninit;
 ///
 ///     //Items can never be removed, which is how we can safely do this with a shared reference!
 ///     assert_eq!(vec[0], 2);
-///     assert_eq!(vec.get(1).unwrap(), 5);
-///     assert_eq!(vec.iter().last().unwrap(), 10);
+///     assert_eq!(vec.get(1).unwrap(), &5);
+///     assert_eq!(vec.iter().last().unwrap(), &10);
 /// }
 /// // Because all operations can be done using shared references, `FrozenVec` is `!Sync` to
 /// // enforce aliasing concerns
@@ -54,7 +54,7 @@ impl<T, const N: usize> FrozenVec<T, N> {
     /// Constructs a new, empty vector with a fixed capacity of `N`
     pub fn new() -> Self {
         Self {
-            buf: [UnsafeCell::new(MaybeUninit::uninit()); N],
+            buf: [(); N].map(|_| UnsafeCell::new(MaybeUninit::uninit())),
             len: UnsafeCell::new(0),
         }
     }
@@ -91,7 +91,7 @@ impl<T, const N: usize> FrozenVec<T, N> {
     /// This assumes the vector is not full
     pub unsafe fn push_get_unchecked(&self, item: T) -> &T {
         // # SAFETY: `Self` is !Send, so we are the only ones accessing `self.len`
-        let len = &mut *self.len.get();
+        let len = unsafe { &mut *self.len.get() };
 
         // The index of the to-be-pushed element is the current size of this FrozenVec
         let i: usize = *len;
@@ -187,9 +187,7 @@ where
 {
     fn clone(&self) -> Self {
         let len = self.len();
-        const UNINIT: UnsafeCell<MaybeUninit<T>> = UnsafeCell::new(MaybeUninit::uninit());
-
-        let dst = [UNINIT; N];
+        let mut dst = [(); N].map(|_| UnsafeCell::new(MaybeUninit::uninit()));
         for (i, val) in self.iter().enumerate() {
             dst[i] = UnsafeCell::new(MaybeUninit::new(val.clone()));
         }
@@ -248,8 +246,8 @@ impl<T, const N: usize> core::ops::Index<usize> for FrozenVec<T, N> {
 fn test_iteration() {
     use heapless::Vec;
 
-    let v: FrozenVec<&u32, 6> = FrozenVec::new();
-    let mut h: Vec<&u32, 6> = Vec::new();
+    let v: FrozenVec<u32, 6> = FrozenVec::new();
+    let mut h: Vec<u32, 6> = Vec::new();
 
     let x = 0;
     let y = 2;
@@ -258,22 +256,22 @@ fn test_iteration() {
     let b = 9;
     let c = 11;
 
-    v.push(&x).unwrap();
-    v.push(&y).unwrap();
-    v.push(&z).unwrap();
-    v.push(&a).unwrap();
-    v.push(&b).unwrap();
-    v.push(&c).unwrap();
+    v.push(x).unwrap();
+    v.push(y).unwrap();
+    v.push(z).unwrap();
+    v.push(a).unwrap();
+    v.push(b).unwrap();
+    v.push(c).unwrap();
 
-    h.push(&x).unwrap();
-    h.push(&y).unwrap();
-    h.push(&z).unwrap();
-    h.push(&a).unwrap();
-    h.push(&b).unwrap();
-    h.push(&c).unwrap();
+    h.push(x).unwrap();
+    h.push(y).unwrap();
+    h.push(z).unwrap();
+    h.push(a).unwrap();
+    h.push(b).unwrap();
+    h.push(c).unwrap();
 
     for (e1, e2) in h.iter().zip(v.iter()) {
-        assert_eq!(*e1, e2);
+        assert_eq!(e1, e2);
     }
 
     assert_eq!(h.len(), v.iter().count());
@@ -284,7 +282,7 @@ fn test_iteration() {
 
 #[test]
 fn test_accessors() {
-    let vec: FrozenVec<&u32, 8> = FrozenVec::new();
+    let vec: FrozenVec<u32, 8> = FrozenVec::new();
 
     let x = 0;
     let y = 2;
@@ -296,9 +294,9 @@ fn test_accessors() {
     // assert_eq!(vec.last(), None);
     assert_eq!(vec.get(1), None);
 
-    vec.push(&x).unwrap();
-    vec.push(&y).unwrap();
-    vec.push(&z).unwrap();
+    vec.push(x).unwrap();
+    vec.push(y).unwrap();
+    vec.push(z).unwrap();
 
     assert_eq!(vec.is_empty(), false);
     assert_eq!(vec.len(), 3);

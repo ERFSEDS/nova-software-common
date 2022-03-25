@@ -79,7 +79,7 @@ pub enum StateTransition<'s> {
 #[derive(Debug)]
 pub struct Command {
     /// The object that this command will act upon
-    pub object: super::CommandObject,
+    pub object: super::CommandValue,
 
     /// How long after the state activates to execute this command
     pub delay: super::Seconds,
@@ -89,7 +89,7 @@ pub struct Command {
 }
 
 impl Command {
-    pub fn new(object: super::CommandObject, delay: super::Seconds) -> Self {
+    pub fn new(object: super::CommandValue, delay: super::Seconds) -> Self {
         Self {
             object,
             delay,

@@ -110,16 +110,16 @@ pub enum StateTransition {
 /// An action that takes place at a specific time after the state containing this is entered
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub struct Command {
-    /// The object that this command will act upon
-    pub object: super::CommandObject,
+    /// The command component which will be set by the command along with the value it will be set to
+    pub value: super::CommandValue,
 
     /// How long after the state activates to execute this command
     pub delay: super::Seconds,
 }
 
 impl Command {
-    pub fn new(object: super::CommandObject, delay: super::Seconds) -> Self {
-        Self { object, delay }
+    pub fn new(inner: super::CommandValue, delay: super::Seconds) -> Self {
+        Self { value: inner, delay }
     }
 }
 

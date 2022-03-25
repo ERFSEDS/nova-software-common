@@ -90,18 +90,18 @@ pub enum CheckKind {
 /// Represents the state that something's value can be, this can be the value a command will set
 /// something to, or a value that a check will receive
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
-pub enum ObjectState {
+pub enum Value {
     /// An On/Off True/False for a GPIO for example
     Bool(bool),
     /// A floating-point value
-    Float(f32),
+    F32(f32),
     // TODO: We may want to rename/remove this, but this was for the DataRate
-    Short(u16),
+    U16(u16),
 }
 
-/// An object that a command can act upon
+/// A command with its associated state
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
-pub enum CommandObject {
+pub enum CommandValue {
     Pyro1(bool),
     Pyro2(bool),
     Pyro3(bool),
@@ -109,16 +109,19 @@ pub enum CommandObject {
     DataRate(u16),
 }
 
-impl From<&reference::Command> for index::Command {
-    fn from(c: &reference::Command) -> Self {
-        Self {
-            object: c.object,
-            delay: c.delay,
+impl CommandValue {
+    pub fn to_value(self) -> Value {
+        match self {
+            CommandValue::Pyro1(b) => Value::Bool(b),
+            CommandValue::Pyro2(b) => Value::Bool(b),
+            CommandValue::Pyro3(b) => Value::Bool(b),
+            CommandValue::Beacon(b) => Value::Bool(b),
+            CommandValue::DataRate(r) => Value::U16(r),
         }
     }
 }
 
-/// An object that a command can act upon
+/// The distinct kinds of hardware that a command can modify
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
 pub enum CommandKind {
     Pyro1,
@@ -132,32 +135,41 @@ impl CommandKind {
     /// Adds a bool state to this `CommandKind`, assuming that is able to store a bool. This
     /// function will panic if self is `CommandKind::DataRate`, as the inner state data type for
     /// this is u16
-    pub fn with_bool(self, val: bool) -> CommandObject {
+    pub fn with_bool(self, val: bool) -> CommandValue {
         match self {
-            CommandKind::Pyro1 => CommandObject::Pyro1(val),
-            CommandKind::Pyro2 => CommandObject::Pyro2(val),
-            CommandKind::Pyro3 => CommandObject::Pyro3(val),
-            CommandKind::Beacon => CommandObject::Beacon(val),
+            CommandKind::Pyro1 => CommandValue::Pyro1(val),
+            CommandKind::Pyro2 => CommandValue::Pyro2(val),
+            CommandKind::Pyro3 => CommandValue::Pyro3(val),
+            CommandKind::Beacon => CommandValue::Beacon(val),
             CommandKind::DataRate => panic!("cannot add bool to self when self is a DataRate"),
         }
     }
 
-    pub fn with_u16(self, val: u16) -> CommandObject {
+    pub fn with_u16(self, val: u16) -> CommandValue {
         let msg = match self {
             CommandKind::Pyro1 => "pyro1",
             CommandKind::Pyro2 => "pyro2",
             CommandKind::Pyro3 => "pyro3",
             CommandKind::Beacon => "beacon",
-            CommandKind::DataRate => return CommandObject::DataRate(val),
+            CommandKind::DataRate => return CommandValue::DataRate(val),
         };
         panic!("cannot add u16 when self is an {msg}")
     }
 
-    pub fn with_state(self, state: ObjectState) -> CommandObject {
+    pub fn with_state(self, state: Value) -> CommandValue {
         match state {
-            ObjectState::Bool(val) => self.with_bool(val),
-            ObjectState::Short(val) => self.with_u16(val),
-            ObjectState::Float(_val) => todo!(),
+            Value::Bool(val) => self.with_bool(val),
+            Value::U16(val) => self.with_u16(val),
+            Value::F32(_val) => todo!(),
+        }
+    }
+}
+
+impl From<&reference::Command> for index::Command {
+    fn from(c: &reference::Command) -> Self {
+        Self {
+            value: c.object,
+            delay: c.delay,
         }
     }
 }

@@ -1,9 +1,8 @@
-//! Holds traits that are used by the ground station.kj
-//!
+//! Holds traits that are used by the ground station.
 
-use crate::data_format::Seconds;
+use crate::config_format::Seconds;
 
-// TODO: switch to timestamp trait with #[cfg(ed)] implementation
+// TODO: switch to #[cfg(ed)] implementation
 #[derive(Debug, Clone)]
 pub struct Timestamp(usize);
 
@@ -42,3 +41,27 @@ impl std::fmt::Display for Timestamp {
         todo!()
     }
 }
+
+pub trait GpioRead {
+    fn read(&self) -> bool;
+}
+
+pub trait GpioWrite {
+    fn write(&mut self, val: bool);
+}
+
+// TODO: switch to #[cfg(ed)] implementation
+pub struct Gpio(u16);
+
+impl GpioWrite for Gpio {
+    fn write(&mut self, val: bool) {
+        todo!()
+    }
+}
+
+impl GpioRead for Gpio {
+    fn read(&self) -> bool {
+        todo!()
+    }
+}
+

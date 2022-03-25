@@ -6,10 +6,10 @@ use traits::{GenericTimestamp, Timestamp};
 
 use crate::control::Controls;
 use crate::data_acquisition::DataWorkspace;
-use crate::data_format::FloatCondition;
-use crate::data_format::{
+use crate::config_format::FloatCondition;
+use crate::config_format::{
     reference::{Check, Command, State, StateTransition},
-    CheckData, CommandObject, ObjectState, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE,
+    CheckData, CommandValue, Value, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE,
 };
 use heapless::Vec;
 
@@ -80,7 +80,7 @@ impl<'a, 'b, 'c> StateMachine<'a, 'b, 'c> {
     fn execute_command(&mut self, command: &Command) {
         if !command.was_executed.get() {
             if self.last_transition_time.elapsed() >= command.delay {
-                self.controls.set(command.object, command);
+                self.controls.set(command.object);
                 command.was_executed.set(true);
             }
         }
@@ -90,8 +90,8 @@ impl<'a, 'b, 'c> StateMachine<'a, 'b, 'c> {
         let value = self.data_workspace.get_object(check.data.kind());
 
         let satisfied = match (check.data, value) {
-            (CheckData::ApogeeFlag(expected), ObjectState::Bool(actual)) => expected == actual,
-            (CheckData::Altitude(condition), ObjectState::Float(actual)) => match condition {
+            (CheckData::ApogeeFlag(expected), Value::Bool(actual)) => expected == actual,
+            (CheckData::Altitude(condition), Value::F32(actual)) => match condition {
                 FloatCondition::LessThan(expected) => actual < expected,
                 FloatCondition::GreaterThan(expected) => actual > expected,
                 FloatCondition::Between {
@@ -99,9 +99,9 @@ impl<'a, 'b, 'c> StateMachine<'a, 'b, 'c> {
                     lower_bound,
                 } => (actual >= upper_bound && actual <= lower_bound),
             },
-            (CheckData::Pyro1Continuity(expected), ObjectState::Bool(actual))
-            | (CheckData::Pyro2Continuity(expected), ObjectState::Bool(actual))
-            | (CheckData::Pyro3Continuity(expected), ObjectState::Bool(actual)) => {
+            (CheckData::Pyro1Continuity(expected), Value::Bool(actual))
+            | (CheckData::Pyro2Continuity(expected), Value::Bool(actual))
+            | (CheckData::Pyro3Continuity(expected), Value::Bool(actual)) => {
                 expected == actual
             }
             // Unreachable here since there would have to be a bug inside data workspace which
@@ -132,8 +132,8 @@ impl<'a, 'b, 'c> StateMachine<'a, 'b, 'c> {
             StateTransition::Transition(state) => {
                 #[cfg(feature = "std")]
                 println!(
-                    "[{}s] Transitioned to state: {}",
-                    self.start_time.elapsed().unwrap().as_secs_f32(),
+                    "[{}] Transitioned to state: {}",
+                    self.start_time.elapsed(),
                     state.id
                 );
                 // We may also put some kind of transition reporting here or just use state ID's

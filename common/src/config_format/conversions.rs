@@ -16,7 +16,7 @@ pub fn indices_to_refs(
     let align = align_of::<State>();
 
     // Unwrap always succeeds because align was obtained from `align_of`
-    let layout: Layout = alloc::Layout::from_size_align(bytes, align).unwrap().into();
+    let layout: Layout = core::alloc::Layout::from_size_align(bytes, align).unwrap().into();
     let layout = NonZeroLayout::from_layout(layout).unwrap();
     let mem = alloc.alloc(layout)?;
 
@@ -93,7 +93,7 @@ pub fn indices_to_refs(
 }
 
 fn command_index_to_ref(command: &index::Command) -> reference::Command {
-    reference::Command::new(command.object, command.delay)
+    reference::Command::new(command.value, command.delay)
 }
 
 fn transition_index_to_ref<'s>(
@@ -133,8 +133,8 @@ mod tests {
         index::{Check, Command, ConfigFile, State, StateIndex, StateTransition, Timeout},
         indices_to_refs,
     };
-    use crate::data_format::{
-        reference, CheckData, CommandObject, FloatCondition, NativeFlagCondition,
+    use crate::config_format::{
+        reference, CheckData, CommandValue, FloatCondition, NativeFlagCondition,
         PyroContinuityCondition, Seconds, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES,
     };
     use heapless::Vec;
@@ -173,7 +173,7 @@ mod tests {
         //
         let mut descent_commands = Vec::new();
         descent_commands
-            .push(Command::new(CommandObject::DataRate(20), Seconds(0.0)))
+            .push(Command::new(CommandValue::DataRate(20), Seconds(0.0)))
             .unwrap();
         let descent = State::new(Vec::new(), descent_commands, None);
         states.push(descent).unwrap();
@@ -300,7 +300,7 @@ mod tests {
                 if let Some(transition) = check.transition {
                     let idx_transition = idx_check.transition.unwrap();
 
-                    use crate::{data_format::index, data_format::reference};
+                    use crate::{config_format::index, config_format::reference};
                     match transition {
                         reference::StateTransition::Transition(s) => match idx_transition {
                             index::StateTransition::Transition(idx) => {
@@ -323,7 +323,7 @@ mod tests {
             }
 
             for (command, idx_command) in state.commands.iter().zip(idx_state.commands.iter()) {
-                assert_eq!(command.object, idx_command.object);
+                assert_eq!(command.object, idx_command.value);
                 assert_eq!(command.delay, idx_command.delay);
             }
         }

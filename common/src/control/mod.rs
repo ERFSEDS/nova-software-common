@@ -1,7 +1,6 @@
-
 use std::time::SystemTime;
 
-use data_format::{CommandKind, CommandObject, ObjectState};
+use crate::config_format::{CommandKind, CommandValue, Value};
 
 pub struct Controls {
     pyro1: ControlObject,
@@ -29,15 +28,14 @@ impl Controls {
         }
     }
 
-    pub fn set(&mut self, kind: CommandKind, state: ObjectState) {
-        let a = kind.with_state(state);
-
-        let object = match kind {
-            CommandKind::Pyro1 => &mut self.pyro1,
-            CommandKind::Pyro2 => &mut self.pyro2,
-            CommandKind::Pyro3 => &mut self.pyro3,
-            CommandKind::Beacon => &mut self.beacon,
-            CommandKind::DataRate => &mut self.data_rate,
+    pub fn set(&mut self, object: CommandValue) {
+        let state = object.to_value();
+        let object = match object {
+            CommandValue::Pyro1(_) => &mut self.pyro1,
+            CommandValue::Pyro2(_) => &mut self.pyro2,
+            CommandValue::Pyro3(_) => &mut self.pyro3,
+            CommandValue::Beacon(_) => &mut self.beacon,
+            CommandValue::DataRate(_) => &mut self.data_rate,
         };
 
         object.set(state);
@@ -49,7 +47,7 @@ enum ControlObject {
 }
 
 impl ControlObject {
-    pub fn set(&mut self, state: ObjectState) {
+    pub fn set(&mut self, state: Value) {
         match self {
             ControlObject::Dummy(d) => d.set(state),
         }
@@ -70,7 +68,7 @@ impl Dummy {
         }
     }
 
-    pub fn set(&mut self, state: ObjectState) {
+    pub fn set(&mut self, state: Value) {
         println!(
             "[{}s] {} was set to value: {:?}",
             self.start.elapsed().unwrap().as_secs_f32(),

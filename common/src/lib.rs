@@ -4,6 +4,5 @@
 pub mod telemetry;
 pub mod control;
 pub mod state_machine;
-pub mod data_format;
+pub mod config_format;
 pub mod data_acquisition;
-pub mod traits;

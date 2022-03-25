@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use data_format::{CheckKind, ObjectState};
+use crate::config_format::{CheckKind, Value};
 
 pub struct DataWorkspace {
     altitude: SimulatedDataObject,
@@ -14,24 +14,24 @@ impl DataWorkspace {
         let now = Instant::now();
 
         let altitude = SimulatedDataObject::DurationBased(DurationBased::new(
-            ObjectState::Flag(false),
-            ObjectState::Flag(true),
+            Value::Bool(false),
+            Value::Bool(true),
             now + Duration::from_secs(2),
         ));
 
         let pyro1 = SimulatedDataObject::DurationBased(DurationBased::new(
-            ObjectState::Flag(false),
-            ObjectState::Flag(true),
+            Value::Bool(false),
+            Value::Bool(true),
             now + Duration::from_secs(2),
         ));
         let pyro2 = SimulatedDataObject::DurationBased(DurationBased::new(
-            ObjectState::Flag(false),
-            ObjectState::Flag(true),
+            Value::Bool(false),
+            Value::Bool(true),
             now + Duration::from_secs(2),
         ));
         let pyro3 = SimulatedDataObject::DurationBased(DurationBased::new(
-            ObjectState::Flag(false),
-            ObjectState::Flag(true),
+            Value::Bool(false),
+            Value::Bool(true),
             now + Duration::from_secs(2),
         ));
 
@@ -43,7 +43,7 @@ impl DataWorkspace {
         }
     }
 
-    pub fn get_object(&self, object: CheckKind) -> ObjectState {
+    pub fn get_object(&self, object: CheckKind) -> Value {
         match object {
             CheckKind::Altitude => self.altitude.read(),
             CheckKind::ApogeeFlag => {
@@ -69,13 +69,13 @@ impl Gpio {
         Self { pin }
     }
 
-    fn read(&self) -> ObjectState {
+    fn read(&self) -> Value {
         unimplemented!();
     }
 }
 
 pub trait DataObject {
-    fn read(&self) -> ObjectState;
+    fn read(&self) -> Value;
 }
 
 /// Represents any source of an ObjectState
@@ -85,7 +85,7 @@ enum SimulatedDataObject {
 }
 
 impl DataObject for SimulatedDataObject {
-    fn read(&self) -> ObjectState {
+    fn read(&self) -> Value {
         match self {
             Self::Gpio(gpio) => gpio.read(),
             Self::DurationBased(db) => db.read(),
@@ -97,19 +97,19 @@ impl DataObject for SimulatedDataObject {
 struct DurationBased {
     /// The initial value of this state, will be returned in [`DurationBased::read`]
     /// if before `transition_at`
-    pub initial: ObjectState,
+    pub initial: Value,
 
     /// The final value of this state, will be returned in [`DurationBased::read`]
     /// if after `transition_at`
     // Would be nice if we could call this `final`, but final is a reserved keyword :(
-    pub eventual: ObjectState,
+    pub eventual: Value,
 
     /// The instant in time to transition between `initial` and `eventual`
     pub transition_at: Instant,
 }
 
 impl DurationBased {
-    pub fn new(initial: ObjectState, eventual: ObjectState, transition_at: Instant) -> Self {
+    pub fn new(initial: Value, eventual: Value, transition_at: Instant) -> Self {
         Self {
             initial,
             eventual,
@@ -117,7 +117,7 @@ impl DurationBased {
         }
     }
 
-    fn read(&self) -> ObjectState {
+    fn read(&self) -> Value {
         let now = Instant::now();
         if now > self.transition_at {
             self.eventual

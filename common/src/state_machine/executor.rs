@@ -1,10 +1,10 @@
 use super::traits::{GenericTimestamp, Timestamp};
 
-use crate::config_format::{FloatCondition, Seconds};
 use crate::config_format::{
     reference::{Check, Command, State, StateTransition},
     CheckData, Value,
 };
+use crate::config_format::{FloatCondition, Seconds};
 use crate::control::Controls;
 use crate::data_acquisition::DataWorkspace;
 

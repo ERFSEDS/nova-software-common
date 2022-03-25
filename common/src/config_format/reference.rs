@@ -5,7 +5,7 @@
 use core::cell::Cell;
 use heapless::Vec;
 
-use super::{frozen::FrozenVec, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES, Seconds};
+use super::{frozen::FrozenVec, Seconds, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES};
 
 pub struct ConfigFile<'s> {
     pub default_state: &'s State<'s>,

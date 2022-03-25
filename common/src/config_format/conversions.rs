@@ -276,7 +276,10 @@ mod tests {
         let poweron = State::new(
             poweron_checks,
             Vec::new(),
-            Some(Timeout::new(Seconds::new(1.0), StateTransition::Transition(launch_idx))),
+            Some(Timeout::new(
+                Seconds::new(1.0),
+                StateTransition::Transition(launch_idx),
+            )),
         );
         states.push(poweron).unwrap();
         // # SAFETY: We just pushed `poweron`

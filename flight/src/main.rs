@@ -1,16 +1,16 @@
 #![no_std]
 
-use novafs_common::config_format::reference::{StateTransition, Timeout};
-use novafs_common::config_format::{
-    self as config, CheckData, FrozenVec, NativeFlagCondition, PyroContinuityCondition, Seconds,
+use novafc_common::config_format::reference::{StateTransition, Timeout};
+use novafc_common::config_format::{
+    self as config, CheckData, FrozenVec, PyroContinuityCondition, Seconds,
 };
 
 use config::reference::{Check, Command, State};
 use config::CommandValue;
 use config::{MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES};
-use novafs_common::control::Controls;
-use novafs_common::data_acquisition::DataWorkspace;
-use novafs_common::state_machine::StateMachine;
+use novafc_common::control::Controls;
+use novafc_common::data_acquisition::DataWorkspace;
+use novafc_common::state_machine::StateMachine;
 use static_alloc::Bump;
 
 const STATE_SIZE: usize = core::mem::size_of::<State>() * MAX_STATES;

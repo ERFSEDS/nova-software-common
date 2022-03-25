@@ -1,9 +1,9 @@
 [package]
-name = "novafs-flight"
+name = "novafc-flight"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-novafs-common = { path = "../common/" }
+novafc-common = { path = "../common/" }
 heapless = "0.7.7"
 static-alloc = "0.2.3"

@@ -50,7 +50,7 @@
 //! The second message is a `TicksPerSecond` message which changes the tick rate to 1,000,000 ticks
 //! per second, and `ticks_since_last_message` is set to 512.
 //! This change happened `(512 ticks)/(1024 ticks/second) = 0.5 seconds` after the calibration message, so
-//! `2 seconds + (512 ticks)/(1024 ticks/second) = 2.5 seconds` total since wakeup. 
+//! `2 seconds + (512 ticks)/(1024 ticks/second) = 2.5 seconds` total since wakeup.
 //! Once this message is processed, all future tick calculations must use the new tick rate.
 //!
 //! The third message is a `BarometerData` message, recieved 500,000 ticks after the

@@ -1,12 +1,12 @@
 use super::traits::{GenericTimestamp, Timestamp};
 
+use crate::control::Controls;
+use crate::data_acquisition::DataWorkspace;
 use novafc_config_format::{
     reference::{Check, Command, State, StateTransition},
     CheckData, Value,
 };
 use novafc_config_format::{FloatCondition, Seconds};
-use crate::control::Controls;
-use crate::data_acquisition::DataWorkspace;
 
 pub struct StateMachine<'a, 'b, 'c> {
     current_state: &'a State<'a>,

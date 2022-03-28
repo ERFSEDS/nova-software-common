@@ -1,6 +1,6 @@
 //! Holds traits that are used by the ground station.
 
-use crate::config_format::Seconds;
+use novafc_config_format::Seconds;
 
 // TODO: switch to #[cfg(ed)] implementation
 #[derive(Copy, Clone, Debug)]

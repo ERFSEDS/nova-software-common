@@ -4,4 +4,6 @@ members = [
 	"common",
 	"flight",
 	"simulation",
+	"data-format",
+	"config-format",
 ]

@@ -135,7 +135,7 @@ mod tests {
         index::{Check, Command, ConfigFile, State, StateIndex, StateTransition, Timeout},
         indices_to_refs,
     };
-    use crate::config_format::{
+    use crate::{
         reference, CheckData, CommandValue, FloatCondition, NativeFlagCondition,
         PyroContinuityCondition, Seconds, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES,
     };
@@ -306,7 +306,7 @@ mod tests {
                 if let Some(transition) = check.transition {
                     let idx_transition = idx_check.transition.unwrap();
 
-                    use crate::{config_format::index, config_format::reference};
+                    use crate::{index, reference};
                     match transition {
                         reference::StateTransition::Transition(s) => match idx_transition {
                             index::StateTransition::Transition(idx) => {

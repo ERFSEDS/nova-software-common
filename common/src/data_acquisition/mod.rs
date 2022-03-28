@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use crate::config_format::{CheckKind, Value};
+use novafc_config_format::{CheckKind, Value};
 
 pub struct DataWorkspace {
     altitude: SimulatedDataObject,

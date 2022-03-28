@@ -6,7 +6,7 @@ use core::mem::MaybeUninit;
 /// Called frozen because items can never be removed.
 ///
 /// ```
-/// use novafc_common::config_format::FrozenVec;
+/// use novafc_config_format::FrozenVec;
 ///
 /// let vec = FrozenVec::<u32, 8>::new();
 ///

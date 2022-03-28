@@ -1,6 +1,6 @@
 use std::time::SystemTime;
 
-use crate::config_format::{CommandValue, Value};
+use novafc_config_format::{CommandValue, Value};
 
 pub struct Controls {
     pyro1: ControlObject,

@@ -1,7 +1,7 @@
 #![no_std]
 
-use novafc_common::config_format::reference::{StateTransition, Timeout};
-use novafc_common::config_format::{
+use novafc_config_format::reference::{StateTransition, Timeout};
+use novafc_config_format::{
     self as config, CheckData, FrozenVec, PyroContinuityCondition, Seconds,
 };
 

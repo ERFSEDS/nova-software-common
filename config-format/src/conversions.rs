@@ -1,7 +1,6 @@
-use crate::reference::Check;
-use crate::{index, reference};
+use super::reference::Check;
+use super::{index, reference};
 
-use alloc::alloc;
 use alloc_traits::{Layout, LocalAlloc, NonZeroLayout};
 use core::mem::{align_of, size_of, MaybeUninit};
 use core::slice;
@@ -17,7 +16,9 @@ pub fn indices_to_refs(
     let align = align_of::<State>();
 
     // Unwrap always succeeds because align was obtained from `align_of`
-    let layout: Layout = alloc::Layout::from_size_align(bytes, align).unwrap().into();
+    let layout: Layout = core::alloc::Layout::from_size_align(bytes, align)
+        .unwrap()
+        .into();
     let layout = NonZeroLayout::from_layout(layout).unwrap();
     let mem = alloc.alloc(layout)?;
 
@@ -94,7 +95,7 @@ pub fn indices_to_refs(
 }
 
 fn command_index_to_ref(command: &index::Command) -> reference::Command {
-    reference::Command::new(command.object, command.delay)
+    reference::Command::new(command.value, command.delay)
 }
 
 fn transition_index_to_ref<'s>(
@@ -130,19 +131,22 @@ fn alloc_struct<T>(obj: T, alloc: &'static dyn LocalAlloc<'static>) -> Option<&'
 
 #[cfg(test)]
 mod tests {
-    use crate::{
+    use super::{
         index::{Check, Command, ConfigFile, State, StateIndex, StateTransition, Timeout},
-        indices_to_refs, CheckData, CommandObject, FloatCondition, NativeFlagCondition,
+        indices_to_refs,
+    };
+    use crate::{
+        reference, CheckData, CommandValue, FloatCondition, NativeFlagCondition,
         PyroContinuityCondition, Seconds, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES,
     };
     use heapless::Vec;
     use static_alloc::Bump;
 
-    const STATE_SIZE: usize = core::mem::size_of::<crate::reference::State>() * MAX_STATES;
+    const STATE_SIZE: usize = core::mem::size_of::<reference::State>() * MAX_STATES;
     const CHECK_SIZE: usize =
-        core::mem::size_of::<crate::reference::Check>() * MAX_CHECKS_PER_STATE * MAX_STATES;
+        core::mem::size_of::<reference::Check>() * MAX_CHECKS_PER_STATE * MAX_STATES;
     const COMMAND_SIZE: usize =
-        core::mem::size_of::<crate::reference::Command>() * MAX_COMMANDS_PER_STATE * MAX_STATES;
+        core::mem::size_of::<reference::Command>() * MAX_COMMANDS_PER_STATE * MAX_STATES;
     const BUMP_SIZE: usize = STATE_SIZE + CHECK_SIZE + COMMAND_SIZE;
 
     static A: Bump<[u8; BUMP_SIZE]> = Bump::uninit();
@@ -171,8 +175,9 @@ mod tests {
         //
         let mut descent_commands = Vec::new();
         descent_commands
-            .push(Command::new(CommandObject::DataRate(20), Seconds(0.0)))
+            .push(Command::new(CommandValue::DataRate(20), Seconds::new(0.0)))
             .unwrap();
+
         let descent = State::new(Vec::new(), descent_commands, None);
         states.push(descent).unwrap();
         // # SAFETY: We just pushed `descent`
@@ -271,7 +276,10 @@ mod tests {
         let poweron = State::new(
             poweron_checks,
             Vec::new(),
-            Some(Timeout::new(1.0, StateTransition::Transition(launch_idx))),
+            Some(Timeout::new(
+                Seconds::new(1.0),
+                StateTransition::Transition(launch_idx),
+            )),
         );
         states.push(poweron).unwrap();
         // # SAFETY: We just pushed `poweron`
@@ -298,20 +306,21 @@ mod tests {
                 if let Some(transition) = check.transition {
                     let idx_transition = idx_check.transition.unwrap();
 
+                    use crate::{index, reference};
                     match transition {
-                        crate::reference::StateTransition::Transition(s) => match idx_transition {
-                            crate::index::StateTransition::Transition(idx) => {
+                        reference::StateTransition::Transition(s) => match idx_transition {
+                            index::StateTransition::Transition(idx) => {
                                 assert_eq!(s.id, usize::from(idx) as u8);
                             }
-                            crate::index::StateTransition::Abort(_) => {
+                            index::StateTransition::Abort(_) => {
                                 panic!();
                             }
                         },
-                        crate::reference::StateTransition::Abort(s) => match idx_transition {
-                            crate::index::StateTransition::Abort(idx) => {
+                        reference::StateTransition::Abort(s) => match idx_transition {
+                            index::StateTransition::Abort(idx) => {
                                 assert_eq!(s.id, usize::from(idx) as u8);
                             }
-                            crate::index::StateTransition::Transition(_) => {
+                            index::StateTransition::Transition(_) => {
                                 panic!();
                             }
                         },
@@ -320,7 +329,7 @@ mod tests {
             }
 
             for (command, idx_command) in state.commands.iter().zip(idx_state.commands.iter()) {
-                assert_eq!(command.object, idx_command.object);
+                assert_eq!(command.object, idx_command.value);
                 assert_eq!(command.delay, idx_command.delay);
             }
         }

@@ -3,27 +3,28 @@
 //! reference a different state is important
 
 use core::cell::Cell;
-use core::sync::atomic::AtomicBool;
 use heapless::Vec;
 
-use crate::{frozen::FrozenVec, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES};
+use super::{frozen::FrozenVec, Seconds, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES};
 
 pub struct ConfigFile<'s> {
     pub default_state: &'s State<'s>,
     pub states: Vec<&'s State<'s>, MAX_STATES>,
 }
 
+#[derive(Copy, Clone)]
 pub struct Timeout<'s> {
-    pub time: f32,
+    pub time: Seconds,
     pub transition: StateTransition<'s>,
 }
 
 impl<'s> Timeout<'s> {
-    pub fn new(time: f32, transition: StateTransition<'s>) -> Self {
+    pub fn new(time: Seconds, transition: StateTransition<'s>) -> Self {
         Self { time, transition }
     }
 }
 
+#[derive(Clone)]
 pub struct State<'s> {
     pub id: u8,
     pub checks: FrozenVec<&'s Check<'s>, MAX_CHECKS_PER_STATE>,
@@ -56,13 +57,14 @@ impl<'s> State<'s> {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct Check<'s> {
-    pub data: crate::CheckData,
+    pub data: super::CheckData,
     pub transition: Option<StateTransition<'s>>,
 }
 
 impl<'s> Check<'s> {
-    pub fn new(data: crate::CheckData, transition: Option<StateTransition<'s>>) -> Self {
+    pub fn new(data: super::CheckData, transition: Option<StateTransition<'s>>) -> Self {
         Self { data, transition }
     }
 }
@@ -77,21 +79,21 @@ pub enum StateTransition<'s> {
 #[derive(Debug)]
 pub struct Command {
     /// The object that this command will act upon
-    pub object: crate::CommandObject,
+    pub object: super::CommandValue,
 
     /// How long after the state activates to execute this command
-    pub delay: crate::Seconds,
+    pub delay: super::Seconds,
 
     /// If this command has already executed
-    pub was_executed: AtomicBool,
+    pub was_executed: Cell<bool>,
 }
 
 impl Command {
-    pub fn new(object: crate::CommandObject, delay: crate::Seconds) -> Self {
+    pub fn new(object: super::CommandValue, delay: super::Seconds) -> Self {
         Self {
             object,
             delay,
-            was_executed: AtomicBool::new(false),
+            was_executed: Cell::new(false),
         }
     }
 }

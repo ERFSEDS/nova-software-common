@@ -1,0 +1,18 @@
+[package]
+name = "novafc-common"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+heapless = { version = "0.7.7", features = ["serde"] }
+cortex-m = "0.7.3"
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+alloc-traits = "0.1.1"
+ordered-float = { version = "2.0", default-features = false, features = ["serde"] }
+static-alloc = "0.2.3"
+novafc-config-format = { path = "../config-format/" }
+novafc-data-format = { path = "../data-format/" }
+
+[features]
+std = []
+default = ["std"]

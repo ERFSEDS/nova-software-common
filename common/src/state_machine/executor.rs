@@ -8,22 +8,16 @@ use novafc_config_format::{
 };
 use novafc_config_format::{FloatCondition, Seconds};
 
-pub struct StateMachine<'a, 'b, 'c> {
-    current_state: &'a State<'a>,
+pub struct StateMachine<'state> {
+    current_state: &'state State<'state>,
     start_time: Timestamp,
 
     /// The instant the last state was activated
     last_transition_time: Timestamp,
-    data_workspace: &'b DataWorkspace,
-    controls: &'c mut Controls,
 }
 
-impl<'a, 'b, 'c> StateMachine<'a, 'b, 'c> {
-    pub fn new(
-        begin: &'a State<'a>,
-        data_workspace: &'b DataWorkspace,
-        controls: &'c mut Controls,
-    ) -> Self {
+impl<'state> StateMachine<'state> {
+    pub fn new(begin: &'state State<'state>) -> Self {
         let time = Timestamp::now();
 
         #[cfg(feature = "std")]
@@ -33,18 +27,21 @@ impl<'a, 'b, 'c> StateMachine<'a, 'b, 'c> {
             current_state: begin,
             start_time: time,
             last_transition_time: time,
-            data_workspace,
-            controls,
         }
     }
 
-    pub fn execute(&mut self) {
-        if let Some(transition) = self.execute_state() {
+    /// Executes one step of the state machine
+    /// Commands of the current state are executed, checks are checked and if the conditions are
+    /// met, transitions to a new state
+    ///
+    /// This function should be called repeatly at a rapid rate
+    pub fn execute(&mut self, state: &super::state::State) {
+        if let Some(transition) = self.execute_state(state) {
             self.transition(transition);
         }
     }
 
-    fn execute_state(&mut self) -> Option<StateTransition<'a>> {
+    fn execute_state(&mut self, state: &super::state::State) -> Option<StateTransition<'state>> {
         // Execute commands
         for command in self.current_state.commands.iter() {
             self.execute_command(command);
@@ -52,7 +49,7 @@ impl<'a, 'b, 'c> StateMachine<'a, 'b, 'c> {
 
         // Execute checks
         for check in self.current_state.checks.iter() {
-            if let Some(transition) = self.execute_check(check) {
+            if let Some(transition) = self.execute_check(check, state) {
                 return Some(transition);
             }
         }
@@ -73,13 +70,20 @@ impl<'a, 'b, 'c> StateMachine<'a, 'b, 'c> {
     fn execute_command(&mut self, command: &Command) {
         if !command.was_executed.get() {
             if self.last_transition_time.elapsed() >= command.delay {
-                self.controls.set(command.object);
+                // FIXME
+                //self.controls.set(command.object);
                 command.was_executed.set(true);
             }
         }
     }
 
-    fn execute_check(&self, check: &Check<'a>) -> Option<StateTransition<'a>> {
+    fn execute_check(
+        &self,
+        check: &Check<'state>,
+        state: &super::state::State,
+    ) -> Option<StateTransition<'state>> {
+        // FIXME
+        /*
         let value = self.data_workspace.get_object(check.data.kind());
 
         let satisfied = match (check.data, value) {
@@ -105,9 +109,11 @@ impl<'a, 'b, 'c> StateMachine<'a, 'b, 'c> {
         };
 
         satisfied.then(|| check.transition).flatten()
+        */
+        None
     }
 
-    fn transition(&mut self, transition: StateTransition<'a>) {
+    fn transition(&mut self, transition: StateTransition<'state>) {
         let new_state = match transition {
             StateTransition::Abort(state) => {
                 #[cfg(feature = "std")]

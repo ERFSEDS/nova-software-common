@@ -1,5 +1,6 @@
 #![no_std]
 
+use novafc_common::state_machine::state::{self, RawData};
 use novafc_config_format::reference::{StateTransition, Timeout};
 use novafc_config_format::{
     self as config, CheckData, FrozenVec, PyroContinuityCondition, Seconds,
@@ -63,9 +64,46 @@ fn main() {
 
     let mut controls = Controls::new();
 
-    let mut state_machine = StateMachine::new(&poweron, &data_workspace, &mut controls);
+    let mut state_machine = StateMachine::new(&poweron);
+
+    let mut buf = DataBuffer {};
+    let state = state::State {
+        barometer: state::Barometer {
+            altitude: 0.0,
+            temprature: 0.0,
+        },
+    };
 
     loop {
-        state_machine.execute();
+        state_machine.execute(&state);
+        data::aquire(&mut buf, &mut state);
+    }
+}
+
+pub trait GenericSensor {
+    type Output: RawData;
+    fn read(&self) -> Option<Self::Output>;
+}
+
+fn do_data(sensor: &impl GenericSensor) {
+    if let Some(raw) = sensor.read() {
+        let barometer_data = raw.convert();
+        //Write the data
+        buf.write(raw_barometer_data);
+    }
+}
+
+mod data {
+    use super::*;
+    use state::RawData;
+
+    // Reads data, writes it to buf for storage onto the flash chip/sd card, and updates
+    // internal data registers for the state machine
+    pub fn aquire(buf: &mut DataBuffer, state: &mut State, barometer: &impl GenericSensor) {
+        if let Some(raw_barometer_data) = barometer.read() {
+            let barometer_data = raw_barometer_data.convert();
+            //Write the data
+            buf.write(raw_barometer_data);
+        }
     }
 }

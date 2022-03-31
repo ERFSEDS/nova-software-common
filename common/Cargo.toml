@@ -7,6 +7,7 @@ edition = "2021"
 heapless = { version = "0.7.7", features = ["serde"] }
 cortex-m = "0.7.3"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
+postcard = "0.7.3"
 alloc-traits = "0.1.1"
 ordered-float = { version = "2.0", default-features = false, features = ["serde"] }
 static-alloc = "0.2.3"

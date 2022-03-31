@@ -37,7 +37,7 @@ impl GenericTimestamp for Timestamp {
 }
 
 impl std::fmt::Display for Timestamp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }

@@ -1,3 +1,5 @@
+#![allow(clippy::new_without_default)]
+
 use std::time::{Duration, Instant};
 
 use novafc_config_format::{CheckKind, Value};

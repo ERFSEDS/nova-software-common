@@ -27,9 +27,9 @@ impl Seconds {
     }
 }
 
-impl Into<f32> for Seconds {
-    fn into(self) -> f32 {
-        *self.0
+impl From<Seconds> for f32 {
+    fn from(seconds: Seconds) -> Self {
+        *seconds.0
     }
 }
 

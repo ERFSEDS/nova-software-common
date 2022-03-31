@@ -24,9 +24,9 @@ static A: Bump<[u8; BUMP_SIZE]> = Bump::uninit();
 fn main() {
     let increase_data_rate = Command::new(CommandValue::DataRate(16), Seconds::new(4.0));
     let increase_data_rate = &A.leak_box(increase_data_rate).unwrap();
-    let mut launch_commands: FrozenVec<&Command, MAX_COMMANDS_PER_STATE> = FrozenVec::new();
+    let launch_commands: FrozenVec<&Command, MAX_COMMANDS_PER_STATE> = FrozenVec::new();
     launch_commands
-        .push(&increase_data_rate)
+        .push(increase_data_rate)
         .map_err(|_| ())
         .unwrap();
 
@@ -36,7 +36,7 @@ fn main() {
     let safe = State::new_complete(1, FrozenVec::new(), FrozenVec::new(), None);
     let safe = A.leak(safe).map_err(|_| ()).unwrap();
 
-    let mut poweron_checks: FrozenVec<&Check, MAX_CHECKS_PER_STATE> = FrozenVec::new();
+    let poweron_checks: FrozenVec<&Check, MAX_CHECKS_PER_STATE> = FrozenVec::new();
     let continuity_check = Check::new(
         CheckData::Pyro1Continuity(PyroContinuityCondition(true)),
         Some(StateTransition::Transition(launch)),
@@ -44,7 +44,7 @@ fn main() {
     let continuity_check = A.leak(continuity_check).map_err(|_| ()).unwrap();
 
     poweron_checks
-        .push(&continuity_check)
+        .push(continuity_check)
         .map_err(|_| ())
         .unwrap();
 
@@ -63,7 +63,7 @@ fn main() {
 
     let mut controls = Controls::new();
 
-    let mut state_machine = StateMachine::new(&poweron, &data_workspace, &mut controls);
+    let mut state_machine = StateMachine::new(poweron, &data_workspace, &mut controls);
 
     loop {
         state_machine.execute();

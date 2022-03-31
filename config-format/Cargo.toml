@@ -2,7 +2,7 @@
 name = "novafc-config-format"
 version = "0.1.0"
 edition = "2021"
-authors = ["Troy Neubauer <troyneubauer@gmail.com>"]
+authors = ["Troy Neubauer <troyneubauer@gmail.com> Luke Newcomb <newcomb.luke@protonmail.com>"]
 repository = "https://github.com/ERFSEDS/nova-software-common"
 readme = "README.md"
 documentation = "https://docs.rs/novafc-data-format/"

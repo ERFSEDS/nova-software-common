@@ -1,5 +1,7 @@
 #![no_std]
+#![no_main]
 
+/*
 use novafc_config_format::reference::{StateTransition, Timeout};
 use novafc_config_format::{
     self as config, CheckData, FrozenVec, PyroContinuityCondition, Seconds,
@@ -20,8 +22,84 @@ const BUMP_SIZE: usize = STATE_SIZE + CHECK_SIZE + COMMAND_SIZE;
 
 // Our static allocator
 static A: Bump<[u8; BUMP_SIZE]> = Bump::uninit();
+*/
 
-fn main() {
+use core::fmt::Write;
+
+use embedded_hal::spi::{Mode, Phase, Polarity};
+
+use crate::hal::{pac, prelude::*, spi};
+use cortex_m_rt::entry;
+use panic_halt as _;
+use stm32f4xx_hal as hal;
+
+use ms5611_spi::{Ms5611, Oversampling};
+
+#[entry]
+fn main() -> ! {
+    let dp = pac::Peripherals::take().unwrap();
+    let gpioa = dp.GPIOA.split();
+    let gpioc = dp.GPIOC.split();
+
+    let rcc = dp.RCC.constrain();
+    let clocks = rcc.cfgr.sysclk(40.MHz()).freeze();
+
+    let mut delay = dp.TIM1.delay_us(&clocks);
+
+    let tx_pin = gpioa.pa2.into_alternate();
+
+    let mut serial = dp.USART2.tx(tx_pin, 9600.bps(), &clocks).unwrap();
+
+    // "High-Speed"/H_ SPI for flash chip:
+    // SCK PC10
+    // MISO PC11
+    // MOSI PC12
+    //
+    // Regular SPI:
+    // SCK PA5
+    // MISO PA6
+    // MOSI PA7
+    //
+    // CS:
+    // FLASH PB13
+    // ALTIMETER PC5
+    // HIGH_G/ACCEL PB2
+    //
+
+    let sck = gpioa.pa5.into_alternate();
+    let miso = gpioa.pa6.into_alternate();
+    let mosi = gpioa.pa7.into_alternate();
+    let cs = gpioc.pc5.into_push_pull_output();
+
+    let pins = (sck, miso, mosi);
+
+    let spi = spi::Spi::new(
+        dp.SPI1,
+        pins,
+        Mode {
+            polarity: Polarity::IdleLow,
+            phase: Phase::CaptureOnFirstTransition,
+        },
+        1000.kHz(),
+        &clocks,
+    );
+
+    let mut ms6511 = Ms5611::new(spi, cs, &mut delay).unwrap();
+
+    loop {
+        let sample = ms6511
+            .get_second_order_sample(Oversampling::OS_256, &mut delay)
+            .unwrap();
+
+        writeln!(
+            serial,
+            "Temp: {}, Pressure: {}",
+            sample.temperature, sample.pressure
+        )
+        .unwrap();
+    }
+
+    /*
     let increase_data_rate = Command::new(CommandValue::DataRate(16), Seconds::new(4.0));
     let increase_data_rate = &A.leak_box(increase_data_rate).unwrap();
     let launch_commands: FrozenVec<&Command, MAX_COMMANDS_PER_STATE> = FrozenVec::new();
@@ -68,4 +146,5 @@ fn main() {
     loop {
         state_machine.execute();
     }
+    */
 }

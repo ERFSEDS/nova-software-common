@@ -1,3 +1,6 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
+//!
 //! The flight computer -> ground station data logging format.
 //!
 //! This format is a one to one mapping of the fields that are available on the ground station.

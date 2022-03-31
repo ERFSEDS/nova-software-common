@@ -16,7 +16,7 @@ pub trait GenericTimestamp: std::fmt::Display + std::fmt::Debug + Clone {
     // TODO: Is is better to panic in this case? What kinds of user code would be messed up if they
     // use this and expect `Self` to always be in the past?
     fn elapsed(&self) -> Seconds {
-        self.try_elapsed().unwrap_or(Seconds::new(0.0))
+        self.try_elapsed().unwrap_or_else(|| Seconds::new(0.0))
     }
 
     /// Returns the number of seconds elapsed between now and this timestamp if timestamp is in the
@@ -37,7 +37,7 @@ impl GenericTimestamp for Timestamp {
 }
 
 impl std::fmt::Display for Timestamp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }

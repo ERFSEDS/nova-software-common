@@ -1,3 +1,5 @@
+#![allow(clippy::new_without_default)]
+
 use std::time::SystemTime;
 
 use novafc_config_format::{CommandValue, Value};

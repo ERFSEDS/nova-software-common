@@ -71,11 +71,9 @@ impl<'a, 'b, 'c> StateMachine<'a, 'b, 'c> {
     }
 
     fn execute_command(&mut self, command: &Command) {
-        if !command.was_executed.get() {
-            if self.last_transition_time.elapsed() >= command.delay {
-                self.controls.set(command.object);
-                command.was_executed.set(true);
-            }
+        if !command.was_executed.get() && (self.last_transition_time.elapsed() >= command.delay) {
+            self.controls.set(command.object);
+            command.was_executed.set(true);
         }
     }
 

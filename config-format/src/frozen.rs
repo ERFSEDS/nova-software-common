@@ -1,3 +1,4 @@
+#![deny(unsafe_op_in_unsafe_fn)]
 use core::cell::UnsafeCell;
 use core::mem::MaybeUninit;
 
@@ -70,7 +71,8 @@ impl<T, const N: usize> FrozenVec<T, N> {
             Err(item)
         } else {
             // # SAFETY: we have space for another element by the bounds check above
-            Ok(unsafe { self.push_unchecked(item) })
+            unsafe { self.push_unchecked(item) }
+            Ok(())
         }
     }
 
@@ -78,7 +80,7 @@ impl<T, const N: usize> FrozenVec<T, N> {
     /// to it.
     ///
     /// Returns back `item` in Err(..) if the vector is full
-    fn push_get(&self, item: T) -> Result<&T, T> {
+    pub fn push_get(&self, item: T) -> Result<&T, T> {
         if self.is_full() {
             Err(item)
         } else {

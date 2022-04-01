@@ -39,6 +39,7 @@ use ms5611_spi::{Ms5611, Oversampling};
 fn main() -> ! {
     let dp = pac::Peripherals::take().unwrap();
     let gpioa = dp.GPIOA.split();
+    let gpiob = dp.GPIOB.split();
     let gpioc = dp.GPIOC.split();
 
     let rcc = dp.RCC.constrain();
@@ -69,7 +70,8 @@ fn main() -> ! {
     let sck = gpioa.pa5.into_alternate();
     let miso = gpioa.pa6.into_alternate();
     let mosi = gpioa.pa7.into_alternate();
-    let cs = gpioc.pc5.into_push_pull_output();
+    let baro_cs = gpioc.pc5.into_push_pull_output();
+    let accel_cs = gpiob.pb2.into_push_pull_output();
 
     let pins = (sck, miso, mosi);
 
@@ -84,17 +86,43 @@ fn main() -> ! {
         &clocks,
     );
 
-    let mut ms6511 = Ms5611::new(spi, cs, &mut delay).unwrap();
+    writeln!(serial, "Starting initialization.").unwrap();
+
+    let spi_bus = shared_bus::BusManagerSimple::new(spi);
+
+    let mut ms6511 = Ms5611::new(spi_bus.acquire_spi(), baro_cs, &mut delay)
+        .map_err(|_| {
+            writeln!(serial, "Barometer failed to intialize.").unwrap();
+        })
+        .unwrap();
+
+    writeln!(serial, "Barometer initialized.").unwrap();
+
+    let mut h3lis331dl = h3lis331dl::H3LIS331DL::new(spi_bus.acquire_spi(), accel_cs)
+        .map_err(|e| {
+            writeln!(serial, "Accelerometer failed to initialize: {:?}.", e).unwrap();
+        })
+        .unwrap();
+
+    writeln!(serial, "Accelerometer initialized.").unwrap();
+
+    writeln!(serial, "Initialized.").unwrap();
+
+    let mut x = 0;
+    let mut y = 0;
+    let mut z = 0;
 
     loop {
         let sample = ms6511
             .get_second_order_sample(Oversampling::OS_256, &mut delay)
             .unwrap();
 
+        h3lis331dl.readAxes(&mut x, &mut y, &mut z).unwrap();
+
         writeln!(
             serial,
-            "Temp: {}, Pressure: {}",
-            sample.temperature, sample.pressure
+            "Temp: {}, Pressure: {}\nX: {}, Y: {}, Z: {}",
+            sample.temperature, sample.pressure, x, y, z
         )
         .unwrap();
     }

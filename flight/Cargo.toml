@@ -15,6 +15,7 @@ nb = "1"
 cortex-m = "0.7"
 cortex-m-rt = "0.7"
 panic-halt = "0.2"
+shared-bus = "0.2.3"
 
 h3lis331dl = { git = "https://github.com/ERFSEDS/h3lis331dl" }
 

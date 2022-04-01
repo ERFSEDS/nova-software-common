@@ -18,6 +18,7 @@ panic-halt = "0.2"
 shared-bus = "0.2.3"
 
 h3lis331dl = { git = "https://github.com/ERFSEDS/h3lis331dl" }
+bmi088 = "0.1.0"
 
 [dependencies.stm32f4xx-hal]
 version = "0.12.0"

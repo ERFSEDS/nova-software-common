@@ -65,13 +65,17 @@ fn main() -> ! {
     // FLASH PB13
     // ALTIMETER PC5
     // HIGH_G/ACCEL PB2
+    // GYRO ACCEL PB0
+    // GYRO PB1
     //
 
     let sck = gpioa.pa5.into_alternate();
     let miso = gpioa.pa6.into_alternate();
     let mosi = gpioa.pa7.into_alternate();
     let baro_cs = gpioc.pc5.into_push_pull_output();
-    let accel_cs = gpiob.pb2.into_push_pull_output();
+    let high_g_accel_cs = gpiob.pb2.into_push_pull_output();
+    let gyro_accel_cs = gpiob.pb0.into_push_pull_output();
+    let gyro_cs = gpiob.pb1.into_push_pull_output();
 
     let pins = (sck, miso, mosi);
 
@@ -92,19 +96,39 @@ fn main() -> ! {
 
     let mut ms6511 = Ms5611::new(spi_bus.acquire_spi(), baro_cs, &mut delay)
         .map_err(|_| {
-            writeln!(serial, "Barometer failed to intialize.").unwrap();
+            writeln!(serial, "Barometer failed to initialize.").unwrap();
         })
         .unwrap();
 
     writeln!(serial, "Barometer initialized.").unwrap();
 
-    let mut h3lis331dl = h3lis331dl::H3LIS331DL::new(spi_bus.acquire_spi(), accel_cs)
+    let mut bmi088_accel = bmi088::Builder::new_accel_spi(spi_bus.acquire_spi(), gyro_accel_cs);
+
+    if let Err(_) = bmi088_accel.setup(&mut delay) {
+        writeln!(serial, "Low-G accelerometer failed to initialize.").unwrap();
+        panic!();
+    }
+
+    writeln!(serial, "Low-G accelerometer initialized.").unwrap();
+
+    let mut bmi088_gyro = bmi088::Builder::new_gyro_spi(spi_bus.acquire_spi(), gyro_cs);
+
+    if let Err(_) = bmi088_gyro.setup(&mut delay) {
+        writeln!(serial, "Gyro failed to initialize.").unwrap();
+        panic!();
+    }
+
+    writeln!(serial, "Gyro initialized.").unwrap();
+
+    /*
+    let mut h3lis331dl = h3lis331dl::H3LIS331DL::new(spi_bus.acquire_spi(), high_g_accel_cs)
         .map_err(|e| {
             writeln!(serial, "Accelerometer failed to initialize: {:?}.", e).unwrap();
         })
         .unwrap();
 
     writeln!(serial, "Accelerometer initialized.").unwrap();
+    */
 
     writeln!(serial, "Initialized.").unwrap();
 
@@ -117,14 +141,24 @@ fn main() -> ! {
             .get_second_order_sample(Oversampling::OS_256, &mut delay)
             .unwrap();
 
-        h3lis331dl.readAxes(&mut x, &mut y, &mut z).unwrap();
+        // h3lis331dl.readAxes(&mut x, &mut y, &mut z).unwrap();
 
-        writeln!(
+        write!(
             serial,
-            "Temp: {}, Pressure: {}\nX: {}, Y: {}, Z: {}",
-            sample.temperature, sample.pressure, x, y, z
+            "Temp: {}, Pressure: {}, ",
+            sample.temperature, sample.pressure,
         )
         .unwrap();
+
+        /*
+        if let Ok(sample) = bmi088_gyro.get_gyro() {
+            write!(serial, "Gyro: {:?}, ", sample).unwrap();
+        }
+        */
+
+        if let Ok(sample) = bmi088_accel.get_accel() {
+            writeln!(serial, "Accel: {:?}", sample).unwrap();
+        }
     }
 
     /*

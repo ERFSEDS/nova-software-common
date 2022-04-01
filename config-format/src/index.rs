@@ -3,6 +3,7 @@
 
 use super::{Seconds, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES};
 
+use core::option::Option;
 use heapless::Vec;
 use serde::{Deserialize, Serialize};
 

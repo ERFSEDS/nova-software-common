@@ -1,3 +1,5 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 mod conversions;
 mod frozen;
 pub mod index;
@@ -6,8 +8,11 @@ pub mod reference;
 pub use conversions::indices_to_refs;
 pub use frozen::{FrozenVec, Iter};
 
+use core::cmp::{Eq, PartialEq};
+use core::convert::{From, Into};
+use core::ops::Deref;
+use core::{panic, todo};
 use serde::{Deserialize, Serialize};
-use std::ops::Deref;
 
 pub const MAX_STATES: usize = 16;
 pub const MAX_CHECKS_PER_STATE: usize = 3;
@@ -40,8 +45,8 @@ impl Deref for Seconds {
     }
 }
 
-impl std::fmt::Display for Seconds {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Seconds {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_fmt(format_args!("{}s", self.0))
     }
 }

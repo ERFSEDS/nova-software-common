@@ -6,7 +6,7 @@ use novafc_config_format::Seconds;
 #[derive(Copy, Clone, Debug)]
 pub struct Timestamp(usize);
 
-pub trait GenericTimestamp: std::fmt::Display + std::fmt::Debug + Clone {
+pub trait GenericTimestamp: core::fmt::Display + core::fmt::Debug + Clone {
     /// Returns a `Timestamp` that represents the instant this function in invoked
     fn now() -> Self;
 
@@ -36,8 +36,8 @@ impl GenericTimestamp for Timestamp {
     }
 }
 
-impl std::fmt::Display for Timestamp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Timestamp {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         todo!()
     }
 }

@@ -10,7 +10,7 @@ description = "Data format used by the Nova Flight Computer"
 license = "MIT"
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
 serde_json = "1.0"

@@ -65,6 +65,7 @@
 //! implemented. Perhaps we could make a crate that automates this process using smaller bit wrapper
 //! types U14, U20, u6, etc. to give hints to a proc macro so that enum tags can be packed with data
 //! more efficently.
+#![no_std]
 
 use serde::{Deserialize, Serialize};
 

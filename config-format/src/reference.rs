@@ -3,6 +3,7 @@
 //! reference a different state is important
 
 use core::cell::Cell;
+use core::option::Option;
 use heapless::Vec;
 
 use super::{frozen::FrozenVec, Seconds, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES};

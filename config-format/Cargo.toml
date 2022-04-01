@@ -19,4 +19,4 @@ static-alloc = "0.2.3"
 
 [features]
 std = []
-default = ["std"]
+default = []

@@ -35,13 +35,14 @@ impl<'state> StateMachine<'state> {
     /// met, transitions to a new state
     ///
     /// This function should be called repeatly at a rapid rate
-    pub fn execute(&mut self, state: &super::state::State) {
-        if let Some(transition) = self.execute_state(state) {
+    pub fn execute(&mut self) {
+        if let Some(transition) = self.execute_state() {
             self.transition(transition);
         }
     }
 
-    fn execute_state(&mut self, state: &super::state::State) -> Option<StateTransition<'state>> {
+    /// Executes the current state, returning the next state to transition to, if any
+    fn execute_state(&mut self) -> Option<StateTransition<'state>> {
         // Execute commands
         for command in self.current_state.commands.iter() {
             self.execute_command(command);
@@ -49,7 +50,7 @@ impl<'state> StateMachine<'state> {
 
         // Execute checks
         for check in self.current_state.checks.iter() {
-            if let Some(transition) = self.execute_check(check, state) {
+            if let Some(transition) = self.execute_check(check) {
                 return Some(transition);
             }
         }
@@ -77,11 +78,7 @@ impl<'state> StateMachine<'state> {
         }
     }
 
-    fn execute_check(
-        &self,
-        check: &Check<'state>,
-        state: &super::state::State,
-    ) -> Option<StateTransition<'state>> {
+    fn execute_check(&self, check: &Check<'state>) -> Option<StateTransition<'state>> {
         // FIXME
         /*
         let value = self.data_workspace.get_object(check.data.kind());

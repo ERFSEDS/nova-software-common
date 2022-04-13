@@ -1,6 +1,6 @@
 #![no_std]
 
-use novafc_common::state_machine::state::{self, RawData};
+use novafc_common::state_machine::data::{self, TimeManager};
 use novafc_config_format::reference::{StateTransition, Timeout};
 use novafc_config_format::{
     self as config, CheckData, FrozenVec, PyroContinuityCondition, Seconds,
@@ -66,44 +66,79 @@ fn main() {
 
     let mut state_machine = StateMachine::new(&poweron);
 
-    let mut buf = DataBuffer {};
-    let state = state::State {
-        barometer: state::Barometer {
+    let mut buf = [0u8; 512];
+    let mut extra = [0u8; 64];
+    let mut buf = data::BufferedBuffer::new(&mut buf, &mut extra);
+
+    let mut samples = data::Samples {
+        barometer: data::Barometer {
             altitude: 0.0,
             temprature: 0.0,
         },
     };
 
+    let mut barometer = BarometerSensor;
+    let mut time = DummyTimeManager;
+
     loop {
-        state_machine.execute(&state);
-        data::aquire(&mut buf, &mut state);
+        state_machine.execute();
+        aquire_data(&mut buf, &mut samples, &mut barometer, &mut time);
     }
 }
 
 pub trait GenericSensor {
-    type Output: RawData;
-    fn read(&self) -> Option<Self::Output>;
+    type Output: data::RawData;
+    fn read(&mut self) -> Option<Self::Output>;
 }
 
-fn do_data(sensor: &impl GenericSensor) {
-    if let Some(raw) = sensor.read() {
-        let barometer_data = raw.convert();
-        //Write the data
-        buf.write(raw_barometer_data);
+struct BarometerSensor;
+struct DummyTimeManager;
+
+impl GenericSensor for BarometerSensor {
+    type Output = data::RawBarometer;
+
+    fn read(&mut self) -> Option<Self::Output> {
+        Some(Self::Output {
+            pressure: 0,
+            temprature: 0,
+        })
     }
 }
 
-mod data {
-    use super::*;
-    use state::RawData;
+impl TimeManager for DummyTimeManager {
+    fn ticks(&mut self) -> u32 {
+        0
+    }
 
-    // Reads data, writes it to buf for storage onto the flash chip/sd card, and updates
-    // internal data registers for the state machine
-    pub fn aquire(buf: &mut DataBuffer, state: &mut State, barometer: &impl GenericSensor) {
-        if let Some(raw_barometer_data) = barometer.read() {
-            let barometer_data = raw_barometer_data.convert();
+    fn peek_ticks(&self) -> u32 {
+        0
+    }
+
+    fn tick_rate(&self) -> u32 {
+        0
+    }
+}
+
+/// Reads data, writes it to buf for storage onto the flash chip/sd card, and updates
+/// internal data registers for the state machine
+pub fn aquire_data<'s, 'b, 'e, S, R, D>(
+    buf: &'s mut data::BufferedBuffer<'b, 'e>,
+    samples: &mut data::Samples,
+    barometer: &mut S,
+    time: &mut impl data::TimeManager,
+) -> data::FlushRequired<'s, 'b, 'e>
+where
+    S: GenericSensor,
+    S: GenericSensor<Output = R>,
+    R: data::RawData + data::RawData<Output = D>,
+{
+    match barometer.read() {
+        Some(raw_barometer_data) => {
+            let barometer_data = raw_barometer_data.to_data();
             //Write the data
-            buf.write(raw_barometer_data);
+            buf.write(barometer_data, time)
+            //TODO: update samples too with the new data
         }
+        None => data::FlushRequired::No,
     }
 }

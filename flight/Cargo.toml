@@ -4,8 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-novafc-common = { path = "../common/" }
-heapless = "0.7.7"
-static-alloc = "0.2.3"
-novafc-config-format = { path = "../config-format/" }
-novafc-data-format = { path = "../data-format/" }
+embedded-hal = "0.2"
+nb = "1"
+cortex-m = "0.7"
+cortex-m-rt = "0.7"
+heapless = "0.7.10"
+fugit = "0.3.5"
+
+shared-bus = "0.2.3"
+mpu9250 = "0.24"
+
+[dependencies.stm32f4xx-hal]
+version = "0.12.0"
+features = ["stm32f411"]

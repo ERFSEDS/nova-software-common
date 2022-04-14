@@ -10,7 +10,9 @@ use core::time::Duration;
 use embedded_hal::spi::{Mode, Phase, Polarity};
 use hal::pac::USART2;
 use hal::timer::{Event, Timer};
+
 use mpu9250::Mpu9250;
+use ms5611_spi::{Ms5611, Oversampling};
 
 use crate::hal::{pac, prelude::*, spi};
 use cortex_m_rt::entry;
@@ -60,29 +62,43 @@ fn main() -> ! {
     );
 
     let bus2 = shared_bus::BusManagerSimple::new(spi2);
-    let spi2 = bus2.acquire_spi();
 
     write!(serial, "Starting initialization.").unwrap();
 
-    let mut mpu9250 = Mpu9250::marg_default(spi2, imu_cs, &mut delay).unwrap();
+    //let mut mpu9250 = Mpu9250::marg_default(bus2.acquire_spi(), imu_cs, &mut delay).unwrap();
 
+    // let who_am_i = mpu9250.who_am_i().unwrap();
+    // panic!("test");
+    // let ak8963_who_am_i = mpu9250.ak8963_who_am_i().unwrap();
+    // panic!("test");
 
-    let who_am_i = mpu9250.who_am_i().unwrap();
-    panic!("test");
-    let ak8963_who_am_i = mpu9250.ak8963_who_am_i().unwrap();
-    panic!("test");
+    // write!(serial, "WHO_AM_I: 0x{:x}", who_am_i);
+    // write!(serial, "AK8963_WHO_AM_I: 0x{:x}", ak8963_who_am_i);
 
-    write!(serial, "WHO_AM_I: 0x{:x}", who_am_i);
-    write!(serial, "AK8963_WHO_AM_I: 0x{:x}", ak8963_who_am_i);
-
-    assert_eq!(who_am_i, 0x71);
-    assert_eq!(ak8963_who_am_i, 0x48);
+    // assert_eq!(who_am_i, 0x71);
+    // assert_eq!(ak8963_who_am_i, 0x48);
 
     //write!(serial, "{:#?}", mpu9250.all().unwrap());
 
     delay.delay_ms(250u32);
 
     //write!(serial, "{:#?}", mpu9250.all().unwrap());
+
+    let mut ms6511 = Ms5611::new(bus2.acquire_spi(), baro_cs, &mut delay)
+        .map_err(|_| {
+            write!(serial, "Barometer failed to initialize.").unwrap();
+            panic!();
+        })
+        .unwrap();
+
+    let mut h3lis331dl = h3lis331dl::H3LIS331DL::new(bus2.acquire_spi(), high_accel_cs)
+        .map_err(|e| {
+            write!(serial, "HighG Accelerometer failed to initialize: {:?}.", e).unwrap();
+            panic!();
+        })
+        .unwrap();
+
+    panic!();
 
     loop {
         blue_led.set_high();
@@ -121,6 +137,7 @@ fn dump_number(val: u8) -> ! {
         0x0D => panic!(),
         0x0E => panic!(),
         0x0F => panic!(),
+
         0x10 => panic!(),
         0x11 => panic!(),
         0x12 => panic!(),
@@ -137,6 +154,7 @@ fn dump_number(val: u8) -> ! {
         0x1D => panic!(),
         0x1E => panic!(),
         0x1F => panic!(),
+
         0x20 => panic!(),
         0x21 => panic!(),
         0x22 => panic!(),
@@ -153,6 +171,7 @@ fn dump_number(val: u8) -> ! {
         0x2D => panic!(),
         0x2E => panic!(),
         0x2F => panic!(),
+
         0x30 => panic!(),
         0x31 => panic!(),
         0x32 => panic!(),
@@ -169,6 +188,7 @@ fn dump_number(val: u8) -> ! {
         0x3D => panic!(),
         0x3E => panic!(),
         0x3F => panic!(),
+
         0x40 => panic!(),
         0x41 => panic!(),
         0x42 => panic!(),
@@ -185,6 +205,7 @@ fn dump_number(val: u8) -> ! {
         0x4D => panic!(),
         0x4E => panic!(),
         0x4F => panic!(),
+
         0x50 => panic!(),
         0x51 => panic!(),
         0x52 => panic!(),
@@ -201,6 +222,7 @@ fn dump_number(val: u8) -> ! {
         0x5D => panic!(),
         0x5E => panic!(),
         0x5F => panic!(),
+
         0x60 => panic!(),
         0x61 => panic!(),
         0x62 => panic!(),
@@ -217,6 +239,7 @@ fn dump_number(val: u8) -> ! {
         0x6D => panic!(),
         0x6E => panic!(),
         0x6F => panic!(),
+
         0x70 => panic!(),
         0x71 => panic!(),
         0x72 => panic!(),
@@ -233,6 +256,7 @@ fn dump_number(val: u8) -> ! {
         0x7D => panic!(),
         0x7E => panic!(),
         0x7F => panic!(),
+
         0x80 => panic!(),
         0x81 => panic!(),
         0x82 => panic!(),
@@ -249,6 +273,7 @@ fn dump_number(val: u8) -> ! {
         0x8D => panic!(),
         0x8E => panic!(),
         0x8F => panic!(),
+
         0x90 => panic!(),
         0x91 => panic!(),
         0x92 => panic!(),
@@ -265,6 +290,7 @@ fn dump_number(val: u8) -> ! {
         0x9D => panic!(),
         0x9E => panic!(),
         0x9F => panic!(),
+
         0xA0 => panic!(),
         0xA1 => panic!(),
         0xA2 => panic!(),
@@ -281,6 +307,7 @@ fn dump_number(val: u8) -> ! {
         0xAD => panic!(),
         0xAE => panic!(),
         0xAF => panic!(),
+
         0xB0 => panic!(),
         0xB1 => panic!(),
         0xB2 => panic!(),
@@ -297,6 +324,7 @@ fn dump_number(val: u8) -> ! {
         0xBD => panic!(),
         0xBE => panic!(),
         0xBF => panic!(),
+
         0xC0 => panic!(),
         0xC1 => panic!(),
         0xC2 => panic!(),
@@ -313,6 +341,7 @@ fn dump_number(val: u8) -> ! {
         0xCD => panic!(),
         0xCE => panic!(),
         0xCF => panic!(),
+
         0xD0 => panic!(),
         0xD1 => panic!(),
         0xD2 => panic!(),
@@ -329,6 +358,7 @@ fn dump_number(val: u8) -> ! {
         0xDD => panic!(),
         0xDE => panic!(),
         0xDF => panic!(),
+
         0xE0 => panic!(),
         0xE1 => panic!(),
         0xE2 => panic!(),
@@ -345,6 +375,7 @@ fn dump_number(val: u8) -> ! {
         0xED => panic!(),
         0xEE => panic!(),
         0xEF => panic!(),
+
         0xF0 => panic!(),
         0xF1 => panic!(),
         0xF2 => panic!(),

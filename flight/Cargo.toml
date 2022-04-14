@@ -13,6 +13,12 @@ fugit = "0.3.5"
 
 shared-bus = "0.2.3"
 mpu9250 = "0.24"
+h3lis331dl = { git = "https://github.com/ERFSEDS/h3lis331dl.git" }
+
+[dependencies.ms5611-spi]
+version = "0.2.0"
+default-features = false
+features = ["ms5607"]
 
 [dependencies.stm32f4xx-hal]
 version = "0.12.0"

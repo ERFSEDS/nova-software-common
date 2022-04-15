@@ -10,6 +10,7 @@ use core::mem::MaybeUninit;
 use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::spi::{Mode, Phase, Polarity};
 use hal::pac::USART2;
+use ms5611_spi::Ms5611;
 
 use crate::hal::{pac, prelude::*, spi};
 use cortex_m_rt::entry;
@@ -84,18 +85,27 @@ fn main() -> ! {
     // FLASH PB13
     // ALTIMETER PC5
     // HIGH_G/ACCEL PB2
+    // GYRO ACCEL PB0
+    // GYRO PB1
     //
 
-    let sck = gpioc.pc10.into_alternate();
-    let miso = gpioc.pc11.into_alternate();
-    let mosi = gpioc.pc12.into_alternate();
+    // All SPI chip selects
     let flash_cs = gpiob.pb13.into_push_pull_output();
+    let baro_cs = gpioc.pc5.into_push_pull_output();
+    let high_g_accel_cs = gpiob.pb2.into_push_pull_output();
+    let gyro_accel_cs = gpiob.pb0.into_push_pull_output();
+    let gyro_cs = gpiob.pb1.into_push_pull_output();
 
-    let pins = (sck, miso, mosi);
+    // "High Speed" SPI bus
+    let h_sck = gpioc.pc10.into_alternate();
+    let h_miso = gpioc.pc11.into_alternate();
+    let h_mosi = gpioc.pc12.into_alternate();
 
-    let spi = spi::Spi::new(
+    let h_pins = (h_sck, h_miso, h_mosi);
+
+    let h_spi = spi::Spi::new(
         dp.SPI3,
-        pins,
+        h_pins,
         Mode {
             polarity: Polarity::IdleLow,
             phase: Phase::CaptureOnFirstTransition,
@@ -103,6 +113,26 @@ fn main() -> ! {
         1000.kHz(),
         &clocks,
     );
+
+    // Regular sensor SPI bus
+    let sensor_sck = gpioa.pa5.into_alternate();
+    let sensor_miso = gpioa.pa6.into_alternate();
+    let sensor_mosi = gpioa.pa7.into_alternate();
+
+    let sensor_pins = (sensor_sck, sensor_miso, sensor_mosi);
+
+    let sensor_spi = spi::Spi::new(
+        dp.SPI1,
+        sensor_pins,
+        Mode {
+            polarity: Polarity::IdleLow,
+            phase: Phase::CaptureOnFirstTransition,
+        },
+        1000.kHz(),
+        &clocks,
+    );
+
+    let sensor_bus = shared_bus::BusManagerSimple::new(sensor_spi);
 
     println!();
     println!();
@@ -113,18 +143,45 @@ fn main() -> ! {
 
     delay.delay_ms(100u32);
 
-    println!("Initializing flash chip");
-    let flash = w25n512gv::new(spi, flash_cs)
+    print!("Initializing Barometer ... ");
+
+    let mut ms5611 = Ms5611::new(sensor_bus.acquire_spi(), baro_cs, &mut delay)
         .map_err(|e| {
-            println!("Flash chip failed to intialize. {e:?}");
+            println!("Failed: {e:?}");
+        })
+        .unwrap();
+    println!("OK");
+
+    print!("Initializing Low-G Accelerometer ... ");
+    let mut bmi088_accel = bmi088::Builder::new_accel_spi(sensor_bus.acquire_spi(), gyro_accel_cs);
+
+    if let Err(e) = bmi088_accel.setup(&mut delay) {
+        println!("Failed: {e:?}");
+        panic!();
+    }
+    println!("OK");
+
+    print!("Initializing Gyro ... ");
+    let mut bmi088_gyro = bmi088::Builder::new_gyro_spi(sensor_bus.acquire_spi(), gyro_cs);
+
+    if let Err(e) = bmi088_gyro.setup(&mut delay) {
+        println!("Failed: {e:?}");
+        panic!();
+    }
+    println!("OK");
+
+    print!("Initializing Flash Chip");
+    let flash = w25n512gv::new(h_spi, flash_cs)
+        .map_err(|e| {
+            println!("Failed: {e:?}");
         })
         .unwrap();
 
-    let (spi, flash_cs) = flash.reset(&mut delay);
+    let (h_spi, flash_cs) = flash.reset(&mut delay);
 
-    let mut flash = w25n512gv::new(spi, flash_cs /*, &mut delay*/)
+    let mut flash = w25n512gv::new(h_spi, flash_cs /*, &mut delay*/)
         .map_err(|e| {
-            println!("Flash chip failed to intialize. {e:?}");
+            println!("Failed: {e:?}");
         })
         .unwrap();
 
@@ -143,7 +200,7 @@ fn main() -> ! {
     // Disable all protections
     flash.modify_protection_register(|r| r.set(0));
 
-    println!("Initialized.");
+    println!("OK");
 
     let test_page = 128;
 

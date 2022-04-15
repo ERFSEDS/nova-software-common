@@ -8,7 +8,7 @@ embedded-hal = "0.2"
 nb = "1"
 cortex-m = "0.7"
 cortex-m-rt = "0.7"
-w25n512gv = { path = "../../w25n512gv/" }
+w25n512gv = { git = "https://github.com/ERFSEDS/w25n512gv" }
 
 shared-bus = "0.2.3"
 bmi088 = "0.1.0"

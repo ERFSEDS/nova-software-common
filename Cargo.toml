@@ -1,17 +1,9 @@
-[package]
-name = "nova-software-common"
-version = "0.1.0"
-edition = "2021"
+[workspace]
 
-[features]
-default = ["std"]
-std = ["serde/std"]
-
-[dependencies]
-stable_deref_trait = "1.2.0"
-heapless = { version = "0.7.7", features = ["serde"] }
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-alloc-traits = "0.1.1"
-
-[dev-dependencies]
-static-alloc = "0.2.3"
+members = [
+	"common",
+	"flight",
+	"simulation",
+	"data-format",
+	"config-format",
+]

@@ -1,7 +1,7 @@
 //! State machine data structures that use indices to reference state transitions.
 //! This is needed when the config file is serialized between the verifier and the flight computer.
 
-use crate::{MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES};
+use super::{Seconds, MAX_CHECKS_PER_STATE, MAX_COMMANDS_PER_STATE, MAX_STATES};
 
 use heapless::Vec;
 use serde::{Deserialize, Serialize};
@@ -70,13 +70,13 @@ impl State {
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
 pub struct Timeout {
     /// Time in seconds to wait before transitioning
-    pub time: f32,
+    pub time: Seconds,
     /// The transition that is made when the state times out
     pub transition: StateTransition,
 }
 
 impl Timeout {
-    pub fn new(time: f32, transition: StateTransition) -> Self {
+    pub fn new(time: Seconds, transition: StateTransition) -> Self {
         Self { time, transition }
     }
 }
@@ -85,12 +85,12 @@ impl Timeout {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Check {
     //pub name: String<16>,
-    pub data: crate::CheckData,
+    pub data: super::CheckData,
     pub transition: Option<StateTransition>,
 }
 
 impl Check {
-    pub fn new(data: crate::CheckData, transition: Option<StateTransition>) -> Self {
+    pub fn new(data: super::CheckData, transition: Option<StateTransition>) -> Self {
         Self { data, transition }
     }
 }
@@ -110,16 +110,19 @@ pub enum StateTransition {
 /// An action that takes place at a specific time after the state containing this is entered
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub struct Command {
-    /// The object that this command will act upon
-    pub object: crate::CommandObject,
+    /// The command component which will be set by the command along with the value it will be set to
+    pub value: super::CommandValue,
 
     /// How long after the state activates to execute this command
-    pub delay: crate::Seconds,
+    pub delay: super::Seconds,
 }
 
 impl Command {
-    pub fn new(object: crate::CommandObject, delay: crate::Seconds) -> Self {
-        Self { object, delay }
+    pub fn new(inner: super::CommandValue, delay: super::Seconds) -> Self {
+        Self {
+            value: inner,
+            delay,
+        }
     }
 }
 

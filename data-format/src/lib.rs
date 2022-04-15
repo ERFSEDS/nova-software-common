@@ -70,7 +70,7 @@ use serde::{Deserialize, Serialize};
 
 /// Calibration values from the barometer's internal memory,
 /// used to convert raw values into unit values
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct BarometerCalibration {
     /// Pressure sensitivity | SENS_T1
     pub pressure_sensitivity: u16,
@@ -87,21 +87,21 @@ pub struct BarometerCalibration {
 }
 
 /// Raw data values that come from a single sample of the barometer
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct BarometerData {
     pub temprature: u32,
     pub pressure: u32,
 }
 
 /// Raw data values that come from a single sample of the barometer
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct HighGAccelerometerData {
     pub x: i16,
     pub y: i16,
     pub z: i16,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Data {
     /// Calibration values from the barometer.
     ///
@@ -139,7 +139,7 @@ pub enum Data {
 
 /// A message from the flight computer.
 /// Many of these messages compose its data stream throughout a flight
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Message {
     /// The number of ticks since the last message in the stream.
     ///

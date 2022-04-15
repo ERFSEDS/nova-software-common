@@ -82,7 +82,10 @@ fn main() {
 
     loop {
         state_machine.execute();
-        aquire_data(&mut buf, &mut samples, &mut barometer, &mut time);
+        let page = aquire_data(&mut buf, &mut samples, &mut barometer, &mut time);
+        if let data::FlushRequired::Yes(_info) = page {
+            //println!("Flushing page!");
+        }
     }
 }
 

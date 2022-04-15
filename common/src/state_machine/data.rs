@@ -3,6 +3,7 @@
 //! again, it transparently uses the new data
 
 use novafc_data_format::{BarometerData, Data, Message};
+use serde::Deserialize;
 
 pub struct Samples {
     pub barometer: Barometer,
@@ -53,6 +54,29 @@ pub trait TimeManager {
     fn tick_rate(&self) -> u32;
 }
 
+/// A time manager which always returns 0.
+pub struct NullTimeManager;
+
+impl NullTimeManager {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl TimeManager for NullTimeManager {
+    fn ticks(&mut self) -> u32 {
+        0
+    }
+
+    fn peek_ticks(&self) -> u32 {
+        0
+    }
+
+    fn tick_rate(&self) -> u32 {
+        0
+    }
+}
+
 pub struct Buffer<'b> {
     buf: &'b mut [u8],
     offset: usize,
@@ -92,6 +116,7 @@ impl<'b, 'e> BufferedBuffer<'b, 'e> {
                         // Writes `remaining` bytes to `buffer`
                         let count_in_buffer =
                             self.buffer.write_bytes(&self.extra[..count_in_extra]);
+                        dbg!(count_in_buffer, count_in_extra);
 
                         // Store the required info here so that on drop we copy the rest
                         // We already copied `extra[remaining..]`
@@ -108,12 +133,22 @@ impl<'b, 'e> BufferedBuffer<'b, 'e> {
         }
     }
 
+    #[must_use]
+    #[inline]
+    /// Manually returns all data written to this buffer since the last flush, clearing it for future writes.
+    pub fn flush(&mut self) -> &[u8] {
+        self.buffer.flush()
+    }
+
+    #[inline]
+    /// Clears the data in this buffer
     pub fn clear(&mut self) {
         self.buffer.clear();
     }
 }
 
 /// Holds information a user needs to flush a [`BufferedBuffer`]
+#[must_use]
 pub struct FlushInfo<'s, 'b, 'e> {
     buffer: &'s mut BufferedBuffer<'b, 'e>,
 
@@ -126,6 +161,15 @@ pub struct FlushInfo<'s, 'b, 'e> {
     extra_len: usize,
 }
 
+impl<'s, 'b, 'e> FlushInfo<'s, 'b, 'e> {
+    /// Returns the filled buffer to be flushed
+    pub fn buf(&self) -> &[u8] {
+        // The entire buffer is full
+        self.buffer.buffer.buf
+    }
+}
+
+#[must_use]
 pub enum FlushRequired<'s, 'b, 'e> {
     Yes(FlushInfo<'s, 'b, 'e>),
     No,
@@ -134,6 +178,7 @@ pub enum FlushRequired<'s, 'b, 'e> {
 impl<'s, 'b, 'e> Drop for FlushInfo<'s, 'b, 'e> {
     fn drop(&mut self) {
         let to_write = &self.buffer.extra[self.extra_offset..self.extra_offset + self.extra_len];
+        println!("Adding {} bytes on drop", to_write.len());
         self.buffer.buffer.clear();
         self.buffer.buffer.write_bytes(to_write);
     }
@@ -150,6 +195,7 @@ impl<'b> Buffer<'b> {
     /// If the buffer is out of space, the message that would have been written
     /// is returned inside Err(..)
     pub fn try_write(&mut self, data: Data, time: &mut impl TimeManager) -> Result<usize, Data> {
+        println!("before heatrbeat {}", self.offset);
         self.emit_heartbeats(time).map_err(|_| data.clone())?;
         let ticks = time.ticks();
         let msg = Message {
@@ -157,13 +203,12 @@ impl<'b> Buffer<'b> {
             ticks_since_last_message: ticks.try_into().unwrap(),
             data,
         };
-        let capacity = self.buf.len();
         let unused = &mut self.buf[self.offset..];
-        let unused_len = unused.len();
-        match postcard::to_slice(&msg, unused) {
+        let r = match postcard::to_slice(&msg, unused) {
             Ok(rem) => {
-                self.offset = capacity - rem.len();
-                Ok(unused_len - rem.len())
+                println!("Postcrad rem {:?}", rem);
+                self.offset += rem.len();
+                Ok(rem.len())
             }
             Err(err) => {
                 match err {
@@ -175,7 +220,9 @@ impl<'b> Buffer<'b> {
                     }
                 }
             }
-        }
+        };
+        println!("After write {:?}", self.buf);
+        r
     }
 
     /// Emits a heartbeat message if the number of ticks since the last message does not fit in a
@@ -191,9 +238,29 @@ impl<'b> Buffer<'b> {
         const UPPER_BOUND: u32 = u16::MAX as u32 / 9 * 8;
         if time.peek_ticks() > UPPER_BOUND {
             let ticks = time.ticks();
-            self.try_write(Data::Heartbeat(ticks), time).map_err(|_| ());
+            println!("Writing heartbeat");
+            self.try_write(Data::Heartbeat(ticks), time)
+                .map_err(|_| ())?;
         }
         Ok(())
+    }
+
+    /// Reads the next message insidet this buffer.
+    ///
+    /// If successful, the buffer is advanced and `Ok(T)` is returned
+    pub fn read(&mut self) -> Result<Message, postcard::Error> {
+        self.read_t()
+    }
+
+    /// Tries to read a `T` serialized as a postcard object from the buffer.
+    ///
+    /// If successful, the buffer is advanced and `Ok(T)` is returned
+    pub fn read_t<'s, T: Deserialize<'s>>(&'s mut self) -> Result<T, postcard::Error> {
+        let buf = &self.buf[self.offset..];
+        let (t, rem) = postcard::take_from_bytes(buf)?;
+        let bytes_read = buf.len() - rem.len();
+        self.offset += bytes_read;
+        Ok(t)
     }
 
     /// Clears the data in this buffer
@@ -223,6 +290,7 @@ impl<'b> Buffer<'b> {
     #[inline]
     pub fn flush(&mut self) -> &[u8] {
         let offset = self.offset;
+        println!("Flushing {} bytes", offset);
         self.clear();
         &self.buf[..offset]
     }
@@ -237,7 +305,11 @@ impl<'b> Buffer<'b> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Buffer, BufferedBuffer};
+    use novafc_data_format::{BarometerCalibration, HighGAccelerometerData};
+
+    use crate::state_machine::data::TimeManager;
+
+    use super::{BarometerData, Buffer, BufferedBuffer, Data, NullTimeManager};
     #[test]
     fn basic_buffer() {
         let mut buf = [0u8; 16];
@@ -271,6 +343,66 @@ mod tests {
         assert_eq!(buffer.flush(), &[]);
         assert_eq!(buffer.data(), &[]);
         assert_eq!(buffer.flush(), &[]);
+    }
+
+    #[test]
+    fn buffered_buffer() {
+        let mut buf = [0u8; 128];
+        let mut extra = [0u8; 32];
+        let mut buf = BufferedBuffer::new(&mut buf, &mut extra);
+        let mut time = NullTimeManager::new();
+        // TODO: How do we write a test for this
+        let mut storage: Vec<u8> = Vec::new();
+        let count = 20;
+        let mut rng = rand::thread_rng();
+        use rand::RngCore;
+        let fake_data: Vec<_> = (0..count)
+            .map(|_| match rng.next_u32() % 5 {
+                0 => Data::BarometerCalibration(BarometerCalibration {
+                    pressure_sensitivity: rng.next_u32() as u16,
+                    pressure_offset: rng.next_u32() as u16,
+                    temperature_coefficient_ps: rng.next_u32() as u16,
+                    temperature_coefficient_po: rng.next_u32() as u16,
+                    reference_temperature: rng.next_u32() as u16,
+                    temperature_coefficient_t: rng.next_u32() as u16,
+                }),
+                1 => Data::BarometerData(BarometerData {
+                    temprature: rng.next_u32(),
+                    pressure: rng.next_u32(),
+                }),
+                2 => Data::HighGAccelerometerData(HighGAccelerometerData {
+                    x: rng.next_u32() as i16,
+                    y: rng.next_u32() as i16,
+                    z: rng.next_u32() as i16,
+                }),
+                3 => Data::TicksPerSecond(rng.next_u32()),
+                4 => Data::Heartbeat(rng.next_u32()),
+                _ => unreachable!(),
+            })
+            .collect();
+
+        for data in &fake_data {
+            match buf.write(data.clone(), &mut time) {
+                super::FlushRequired::Yes(info) => {
+                    println!("Page done {:?}", info.buf());
+                    storage.extend_from_slice(info.buf());
+                }
+                super::FlushRequired::No => {
+                    println!("Page not done");
+                }
+            }
+        }
+        let remaining = buf.flush();
+        println!("remaining {:?}", &remaining);
+        storage.extend_from_slice(remaining);
+
+        println!("storage {:?}", &storage);
+        let mut reader = Buffer::new(storage.as_mut_slice());
+        for data in &fake_data {
+            let obj = reader.read().unwrap();
+            assert_eq!(&obj.data, data);
+        }
+        assert_eq!(reader.remaining(), 0);
     }
 }
 

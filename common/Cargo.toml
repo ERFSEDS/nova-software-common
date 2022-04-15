@@ -17,3 +17,7 @@ novafc-data-format = { path = "../data-format/" }
 [features]
 std = []
 default = ["std"]
+
+[dev-dependencies]
+postcard = { version = "0.7.3", features = ["use-std"] }
+rand = "0.8"

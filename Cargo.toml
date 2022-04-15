@@ -12,5 +12,6 @@ members = [
 opt-level = "s"
 
 [profile.release]
-opt-level = "s"
+opt-level = "z"
 debug = true
+lto = "fat"

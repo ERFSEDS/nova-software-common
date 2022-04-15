@@ -4,10 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-embedded-hal = "0.2"
-nb = "1"
-cortex-m = "0.7"
-cortex-m-rt = "0.7"
+embedded-hal = "0.2.7"
+cortex-m = "0.7.4"
+cortex-m-rt = "0.7.1"
 w25n512gv = { git = "https://github.com/ERFSEDS/w25n512gv" }
 
 shared-bus = "0.2.3"

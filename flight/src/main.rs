@@ -1,5 +1,7 @@
 #![no_std]
 #![no_main]
+#![deny(unsafe_op_in_unsafe_fn)]
+#![feature(adt_const_params)]
 
 use core::cell::UnsafeCell;
 use core::fmt::Write;
@@ -13,7 +15,7 @@ use crate::hal::{pac, prelude::*, spi};
 use cortex_m_rt::entry;
 use stm32f4xx_hal as hal;
 
-use w25n512gv::{regs, Addresses, W25n512gv};
+use w25n512gv::{regs, Addresses, BufferRef, W25n512gv};
 
 static WRITER: Writer = Writer(UnsafeCell::new(MaybeUninit::uninit()));
 
@@ -111,15 +113,22 @@ fn main() -> ! {
 
     delay.delay_ms(100u32);
 
+    println!("Initializing flash chip");
+    let flash = w25n512gv::new(spi, flash_cs)
+        .map_err(|e| {
+            println!("Flash chip failed to intialize. {e:?}");
+        })
+        .unwrap();
+
+    let (spi, flash_cs) = flash.reset(&mut delay);
+
     let mut flash = w25n512gv::new(spi, flash_cs /*, &mut delay*/)
         .map_err(|e| {
             println!("Flash chip failed to intialize. {e:?}");
         })
         .unwrap();
 
-    let (spi, cs) = flash.reset(&mut delay);
-
-    let mut config_val = flash.modify_configuration_register(|r| {
+    flash.modify_configuration_register(|r| {
         r.modify(
             w25n512gv::regs::Configuration::ECC_E::SET + w25n512gv::regs::Configuration::H_DIS::SET,
         )
@@ -132,44 +141,93 @@ fn main() -> ! {
     //     .unwrap();
 
     // Disable all protections
-    let mut config_val = flash.modify_protection_register(|r| r.set(0));
+    flash.modify_protection_register(|r| r.set(0));
 
     println!("Initialized.");
 
-    println!("Erasing first block");
-    flash.enable_write().unwrap();
-    //flash.block_erase(0).unwrap();
+    let test_page = 128;
+
+    println!("Persistent data from last time");
+
+    let mut page = [0u8; w25n512gv::PAGE_SIZE_WITH_ECC];
+    let mut r = flash.read_sync(test_page).unwrap();
+    dump_buf(&mut r, &mut page, 64);
+    let flash = r.finish().unwrap();
+
+    println!("Erasing chip...");
+    let flash = flash.enable_write().unwrap();
+    let flash = flash.erase_all().unwrap().enable_write().unwrap();
 
     println!("page 0 after erase");
-    //flash.page_data_read(0).unwrap();
+
+    let mut r = flash.read_sync(test_page).unwrap();
+    dump_buf(&mut r, &mut page, 64);
+    let flash = r.finish().unwrap().enable_write().unwrap();
 
     println!("writing first time");
     let mut index: u8 = 0;
     let test_data = [0u8; w25n512gv::PAGE_SIZE_WITH_ECC].map(|_| {
+        let before = index;
         index = index.wrapping_add(2);
-        index
+        before
     });
 
-    let mut flash = flash.enable_write().unwrap();
-    let r = flash.upload_to_buffer_sync(0, &test_data).unwrap();
-    r.commit_sync(0).unwrap();
+    let r = flash.upload_to_buffer_sync(&test_data).unwrap();
+    let flash = r.commit_sync(test_page).unwrap().finish().unwrap();
 
-    //flash.page_data_read(0).unwrap();
+    fn dump_buf<SPI, CS, const W: w25n512gv::Writability, const M: w25n512gv::BufMode>(
+        r: &mut BufferRef<SPI, CS, W, M>,
+        page: &mut [u8; w25n512gv::PAGE_SIZE_WITH_ECC],
+        len: usize,
+    ) where
+        SPI: embedded_hal::blocking::spi::Transfer<u8, Error = stm32f4xx_hal::spi::Error>
+            + embedded_hal::blocking::spi::Write<u8, Error = stm32f4xx_hal::spi::Error>,
+        CS: OutputPin,
+    {
+        if let Err(err) = r.download_from_buffer_sync(page) {
+            println!("Failed to dump flash buffer!");
+            panic!();
+        }
+        println!("Dumping {} bytes of flash from buffer", len);
+        for &byte in page.iter().take(len) {
+            print!("{}, ", byte);
+        }
+        println!();
+    }
 
-    println!("old page 0 after write");
-    flash.page_data_read(0).unwrap();
+    println!("after 2 increment write");
+    let mut r = flash.read_sync(test_page).unwrap();
+    dump_buf(&mut r, &mut page, 16);
+    let flash = r.finish().unwrap();
 
     let mut index: u8 = 0;
     let test_data = [0u8; w25n512gv::PAGE_SIZE_WITH_ECC].map(|_| {
+        let before = index;
         index = index.wrapping_add(1);
-        index
+        before
     });
     delay.delay_us(10u8);
 
+    let flash = flash.enable_write().unwrap();
+    let mut flash = flash.erase(test_page).unwrap().enable_write().unwrap();
+
     println!("writing second time");
-    flash.enable_write().unwrap();
-    flash.load_program_data(0, &test_data).unwrap();
-    flash.program_execute(0).unwrap();
+    let mut r = flash.upload_to_buffer_sync(&test_data).unwrap();
+    let flash = r.commit_sync(test_page).unwrap().finish().unwrap();
+
+    println!("after normal write");
+
+    let mut r = flash.read_sync(test_page).unwrap();
+    dump_buf(&mut r, &mut page, 16);
+    let flash = r.finish().unwrap();
+
+    let mut r = flash.read_sync(test_page).unwrap();
+    dump_buf(&mut r, &mut page, 16);
+    let flash = r.finish().unwrap();
+
+    let mut r = flash.read_sync(test_page).unwrap();
+    dump_buf(&mut r, &mut page, 16);
+    let flash = r.finish().unwrap();
 
     println!("OK");
     loop {}

@@ -178,7 +178,6 @@ pub enum FlushRequired<'s, 'b, 'e> {
 impl<'s, 'b, 'e> Drop for FlushInfo<'s, 'b, 'e> {
     fn drop(&mut self) {
         let to_write = &self.buffer.extra[self.extra_offset..self.extra_offset + self.extra_len];
-        println!("Adding {} bytes on drop", to_write.len());
         self.buffer.buffer.clear();
         self.buffer.buffer.write_bytes(to_write);
     }
@@ -195,7 +194,6 @@ impl<'b> Buffer<'b> {
     /// If the buffer is out of space, the message that would have been written
     /// is returned inside Err(..)
     pub fn try_write(&mut self, data: Data, time: &mut impl TimeManager) -> Result<usize, Data> {
-        println!("before heatrbeat {}", self.offset);
         self.emit_heartbeats(time).map_err(|_| data.clone())?;
         let ticks = time.ticks();
         let msg = Message {
@@ -206,7 +204,6 @@ impl<'b> Buffer<'b> {
         let unused = &mut self.buf[self.offset..];
         let r = match postcard::to_slice(&msg, unused) {
             Ok(rem) => {
-                println!("Postcrad rem {:?}", rem);
                 self.offset += rem.len();
                 Ok(rem.len())
             }
@@ -221,7 +218,6 @@ impl<'b> Buffer<'b> {
                 }
             }
         };
-        println!("After write {:?}", self.buf);
         r
     }
 
@@ -238,7 +234,6 @@ impl<'b> Buffer<'b> {
         const UPPER_BOUND: u32 = u16::MAX as u32 / 9 * 8;
         if time.peek_ticks() > UPPER_BOUND {
             let ticks = time.ticks();
-            println!("Writing heartbeat");
             self.try_write(Data::Heartbeat(ticks), time)
                 .map_err(|_| ())?;
         }
@@ -290,7 +285,6 @@ impl<'b> Buffer<'b> {
     #[inline]
     pub fn flush(&mut self) -> &[u8] {
         let offset = self.offset;
-        println!("Flushing {} bytes", offset);
         self.clear();
         &self.buf[..offset]
     }
@@ -347,11 +341,15 @@ mod tests {
 
     #[test]
     fn buffered_buffer() {
+        // This test creates a bunch of test message objects and stores them to a std vec for safe
+        // keeping later. These objects are written to a buffer and each finished page is stored
+        // into a binary vec for all the encoded data.
+        // Once all encoded, the now sequential buffer that was created from contatianted pages is
+        // decoded and compared with the origional objects to make sure all is well
         let mut buf = [0u8; 128];
         let mut extra = [0u8; 32];
         let mut buf = BufferedBuffer::new(&mut buf, &mut extra);
         let mut time = NullTimeManager::new();
-        // TODO: How do we write a test for this
         let mut storage: Vec<u8> = Vec::new();
         let count = 20;
         let mut rng = rand::thread_rng();
@@ -384,19 +382,14 @@ mod tests {
         for data in &fake_data {
             match buf.write(data.clone(), &mut time) {
                 super::FlushRequired::Yes(info) => {
-                    println!("Page done {:?}", info.buf());
                     storage.extend_from_slice(info.buf());
                 }
-                super::FlushRequired::No => {
-                    println!("Page not done");
-                }
+                super::FlushRequired::No => {}
             }
         }
         let remaining = buf.flush();
-        println!("remaining {:?}", &remaining);
         storage.extend_from_slice(remaining);
 
-        println!("storage {:?}", &storage);
         let mut reader = Buffer::new(storage.as_mut_slice());
         for data in &fake_data {
             let obj = reader.read().unwrap();

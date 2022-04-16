@@ -19,5 +19,5 @@ default-features = false
 features = ["ms5607"]
 
 [dependencies.stm32f4xx-hal]
-version = "0.12.0"
-features = ["stm32f401"]
+version = "0.13.0"
+features = ["stm32f411"]

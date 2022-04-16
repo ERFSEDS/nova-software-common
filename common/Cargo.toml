@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-heapless = { version = "0.7.7", features = ["serde"] }
+heapless = { version = "0.7.7", default-features = false, features = ["serde"] }
 cortex-m = "0.7.3"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 postcard = "0.7.3"

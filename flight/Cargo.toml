@@ -8,10 +8,14 @@ embedded-hal = "0.2"
 nb = "1"
 cortex-m = "0.7"
 cortex-m-rt = "0.7"
-w25n512gv = { path = "../../w25n512gv/" }
+w25n512gv = { git = "https://github.com/ERFSEDS/w25n512gv.git", commit = "b0ca8e00b41f5e9c2ad5b25a5e533a9008ee6387" }
+#novafc-common = { default-features = false, path = "../common/" }
 
 shared-bus = "0.2.3"
 bmi088 = "0.1.0"
+postcard = "0.7.3"
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+heapless = { version = "0.7.7", default-features = false }
 
 [dependencies.ms5611-spi]
 version = "0.2.0"

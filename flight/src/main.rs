@@ -6,10 +6,11 @@ use core::cell::UnsafeCell;
 use core::fmt::Write;
 use core::mem::MaybeUninit;
 
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::v2::{OutputPin, ToggleableOutputPin};
 use embedded_hal::spi::{Mode, Phase, Polarity};
 use hal::pac::USART2;
 use ms5611_spi::{Ms5611, Oversampling};
+use serde::{Deserialize, Serialize};
 
 use crate::hal::{pac, prelude::*, spi};
 use cortex_m_rt::entry;
@@ -64,6 +65,8 @@ fn main() -> ! {
 
     let mut delay = dp.TIM1.delay_us(&clocks);
 
+    delay.delay_ms(100u32);
+
     let tx_pin = gpioa.pa2.into_alternate();
 
     let serial = dp.USART2.tx(tx_pin, 9600.bps(), &clocks).unwrap();
@@ -92,6 +95,16 @@ fn main() -> ! {
     let baro_cs = gpioc.pc5.into_push_pull_output();
     let gyro_accel_cs = gpiob.pb0.into_push_pull_output();
     let gyro_cs = gpiob.pb1.into_push_pull_output();
+
+    let mut buzzer = gpioc.pc4.into_push_pull_output();
+
+    let mut led_red = gpioc.pc6.into_push_pull_output();
+    let mut led_green = gpiob.pb15.into_push_pull_output();
+    let mut led_blue = gpiob.pb14.into_push_pull_output();
+
+    led_red.set_low();
+    led_green.set_high();
+    led_blue.set_high();
 
     let pin1 = (sck1, miso1, mosi1);
 
@@ -134,15 +147,7 @@ fn main() -> ! {
     delay.delay_ms(100u32);
 
     println!("Initializing flash chip");
-    let flash = w25n512gv::new(spi3, flash_cs)
-        .map_err(|e| {
-            println!("Flash chip failed to intialize. {e:?}");
-        })
-        .unwrap();
-
-    let (spi3, flash_cs) = flash.reset(&mut delay);
-
-    let mut flash = w25n512gv::new(spi3, flash_cs /*, &mut delay*/)
+    let mut flash = w25n512gv::new(spi3, flash_cs)
         .map_err(|e| {
             println!("Flash chip failed to intialize. {e:?}");
         })
@@ -155,6 +160,36 @@ fn main() -> ! {
 
     // Disable all protections
     flash.modify_protection_register(|r| *r = 0);
+
+    delay.delay_ms(100u32);
+
+    // MODES
+    let erase = true;
+    let dump_data = false;
+
+    if erase {
+        println!("Erasing chip.");
+        flash = flash.enable_write().unwrap().erase_all().unwrap();
+        delay.delay_ms(100u32);
+        flash = flash.enable_write().unwrap().erase_all().unwrap();
+        delay.delay_ms(100u32);
+        println!("Starting manual erase.");
+
+        led_red.set_low();
+        led_green.set_high();
+        led_blue.set_high();
+        for i in 0..1024 {
+            led_red.toggle();
+            led_green.toggle();
+            flash = flash.enable_write().unwrap().erase_block(i).unwrap();
+        }
+        println!("Finished manual erase.");
+        loop {
+            led_red.set_high();
+            led_green.set_high();
+            led_blue.set_high();
+        }
+    }
 
     println!("Starting initialization.");
 
@@ -186,93 +221,244 @@ fn main() -> ! {
 
     println!("Initialized.");
 
-    let test_page = 7;
-
     println!("Persistent data from last time");
 
-    let mut page = [0u8; w25n512gv::PAGE_SIZE_WITH_ECC];
-    let mut r = flash.read_sync(test_page).unwrap();
-    //dump_buf(&mut r, &mut page, 64);
-    let flash = r.finish();
-
-    println!("Erasing chip...");
-    let flash = flash.enable_write().unwrap();
-    let flash = flash.erase_all().unwrap().enable_write().unwrap();
-
-    println!("page 0 after erase");
-
-    let mut r = flash.read_sync(test_page).unwrap();
-    //dump_buf(&mut r, &mut page, 64);
-    let flash = r.finish();
-
-    println!("writing first time");
-    let mut index: u8 = 0;
-    let test_data = [0u8; w25n512gv::PAGE_SIZE_WITH_ECC].map(|_| {
-        let before = index;
-        index = index.wrapping_add(2);
-        before
-    });
-
-    let r = flash.upload_to_buffer_sync(&test_data).unwrap();
-    let flash = r.commit_sync(test_page).unwrap().finish();
-
-    /*fn dump_buf<SPI, CS>(
-        r: &mut impl BufferRef<SPI, CS, stm32f4xx_hal::spi::Error, stm32f4xx_hal::spi::Error>,
-        page: &mut [u8; w25n512gv::PAGE_SIZE_WITH_ECC],
-        len: usize,
-    ) where
-        SPI: embedded_hal::blocking::spi::Transfer<u8, Error = stm32f4xx_hal::spi::Error>
-            + embedded_hal::blocking::spi::Write<u8, Error = stm32f4xx_hal::spi::Error>,
-        CS: OutputPin,
-    {
-        if let Err(err) = r.download_from_buffer_sync(page) {
-            println!("Failed to dump flash buffer!");
-            panic!();
-        }
-        println!("Dumping {} bytes of flash from buffer", len);
-        for &byte in page.iter().take(len) {
-            print!("{}, ", byte);
-        }
-        println!();
+    #[derive(Serialize, Deserialize, Debug)]
+    struct GlobalHeader {
+        /// The index of the next available block (64 pages)
+        block_offset: u32,
+        /// The number of times the flight computer has restarted since the flash chip was erased
+        num_reboots: u32,
     }
-    */
 
-    println!("after 2 increment write");
-    let mut r = flash.read_sync(test_page).unwrap();
-    //dump_buf(&mut r, &mut page, 16);
-    let flash = r.finish();
+    #[derive(Serialize, Deserialize, Debug)]
+    struct PageHeader {
+        /// The index one past the last byte written in this page. This index should be 0x77 if
+        /// there is room on the page to help check for errors
+        offset: u32,
+    }
 
-    let mut index: u8 = 0;
-    let test_data = [0u8; w25n512gv::PAGE_SIZE_WITH_ECC].map(|_| {
-        let before = index;
-        index = index.wrapping_add(1);
-        before
-    });
-    delay.delay_us(10u8);
+    //dump_buf(&mut r, &mut page, 64);
 
-    let flash = flash.enable_write().unwrap();
-    let mut flash = flash.erase(test_page).unwrap().enable_write().unwrap();
+    const HEADER_SIZE: usize = 32;
 
-    println!("writing second time");
-    let mut r = flash.upload_to_buffer_sync(&test_data).unwrap();
-    let flash = r.commit_sync(test_page).unwrap().finish();
+    let mut buf = [0u8; HEADER_SIZE];
+    let mut r = flash.read_sync(0).unwrap();
+    r.download_from_buffer_sync(&mut buf).unwrap();
+    let mut flash = r.finish();
 
-    println!("after normal write");
+    let mut all_zeroes = true;
+    println!("Data {:?}", buf);
+    for &val in buf.iter() {
+        if val != 0xFF {
+            all_zeroes = false;
+        }
+    }
+    let (mut header, is_initial) = if all_zeroes {
+        // First time
+        println!("Runnig for the first time");
+        (
+            GlobalHeader {
+                //Start on second block because erasing the start resets us
+                block_offset: 1,
+                num_reboots: 1,
+            },
+            true,
+        )
+    } else {
+        println!("Found old header");
+        let mut header: GlobalHeader = postcard::from_bytes(&buf).unwrap();
+        header.num_reboots += 1;
 
-    let mut r = flash.read_sync(test_page).unwrap();
-    //dump_buf(&mut r, &mut page, 16);
-    let flash = r.finish();
+        (header, false)
+    };
 
-    let mut r = flash.read_sync(test_page).unwrap();
-    //dump_buf(&mut r, &mut page, 16);
-    let flash = r.finish();
+    println!("Found header: {:?}", header);
 
-    let mut r = flash.read_sync(test_page).unwrap();
-    //dump_buf(&mut r, &mut page, 16);
-    let flash = r.finish();
+    if is_initial {
+        println!("Entering wait loop");
+        let mut largest = 0;
+        let mut count = 0;
+
+        led_red.set_high();
+        led_green.set_low();
+        led_blue.set_low();
+
+        loop {
+            if let Ok(sample) = bmi088_accel.get_accel() {
+                let total =
+                    (sample[0] as i32).abs() + (sample[1] as i32).abs() + (sample[2] as i32).abs();
+                if total > largest {
+                    largest = total;
+                }
+                println!("{total} - {largest}");
+                if total > 40_000 {
+                    //if total > 40_000 {
+                    break;
+                }
+            }
+            if count % 1_000 < 200 {
+                buzzer.toggle();
+            }
+            delay.delay_ms(10u32);
+
+            count += 1;
+        }
+    } else {
+        //Dumping data
+        if dump_data {
+            loop {
+                println!("Large amount of data already detected...");
+                delay.delay_ms(5_000u32);
+                led_red.set_high();
+                led_green.set_low();
+                led_blue.set_high();
+
+                println!(
+                    "Dumping {} blocks, {} pages, {} bytes",
+                    header.block_offset,
+                    header.block_offset * 64,
+                    header.block_offset * 64 * 1024
+                );
+                let mut buf = [0u8; w25n512gv::PAGE_SIZE_WITH_ECC];
+                for block in 1..=header.block_offset {
+                    for i in 0..64 {
+                        let page_addr = block * 64 + i;
+                        println!("Reading {}", page_addr);
+                        let mut r = flash.read_sync(page_addr as u16).unwrap();
+                        r.download_from_buffer_sync(&mut buf);
+                        for &byte in &buf {
+                            print!("{:X}", byte);
+                        }
+                        println!();
+
+                        flash = r.finish();
+                    }
+                }
+            }
+        }
+    }
+
+    let write_header = |flash: w25n512gv::W25n512gvWD<_, _>, header: &[u8]| {
+        // We must erase before because we are writing a page that my not be all 1's
+        let flash = flash.enable_write().unwrap().erase_block(0).unwrap();
+        let r = flash
+            .enable_write()
+            .unwrap()
+            .upload_to_buffer_sync(&header)
+            .unwrap();
+        let r = r.commit_sync(0).unwrap();
+        r.finish()
+    };
+
+    postcard::to_slice(&header, &mut buf).unwrap();
+    let mut flash = write_header(flash, &buf);
+
+    struct Buffer<'a> {
+        buf: &'a mut [u8],
+        offset: usize,
+    }
 
     println!("OK");
-    loop {}
+    println!(
+        "Erasing next block {}, to prevent interference",
+        header.block_offset
+    );
+    let mut flash = flash
+        .enable_write()
+        .unwrap()
+        .erase_block(header.block_offset as u16)
+        .unwrap();
+
+    led_red.set_low();
+    led_green.set_low();
+    led_blue.set_low();
+
+    loop {
+        for i in 0..64 {
+            //64 pages in a block...
+            let mut page = heapless::Vec::<u8, { w25n512gv::PAGE_SIZE_WITH_ECC }>::new();
+            page.push(b'N');
+            page.push(b'O');
+            page.push(b'V');
+            page.push(b'A');
+            loop {
+                if page.len() > page.capacity() - 8 {
+                    //Almost full, flush page
+                    break;
+                }
+                {
+                    let sample = ms6511
+                        .get_second_order_sample(Oversampling::OS_256, &mut delay)
+                        .unwrap();
+
+                    page.push(b'A');
+                    page.push(b'A');
+
+                    write_i32(&mut page, sample.temperature);
+                    write_i32(&mut page, sample.pressure);
+
+                    //add_sample(SampleKind::Pressure, &data)?;
+                }
+
+                if let Ok(sample) = bmi088_accel.get_accel() {
+                    page.push(b'A');
+                    page.push(b'A');
+                    page.push(2);
+                    write_i16(&mut page, sample[0]);
+                    write_i16(&mut page, sample[1]);
+                    write_i16(&mut page, sample[2]);
+
+                    //add_sample(SampleKind::Accel, &data)?;
+                }
+
+                if let Ok(sample) = bmi088_gyro.get_gyro() {
+                    page.push(b'G');
+                    page.push(b'G');
+                    write_i16(&mut page, sample[0]);
+                    write_i16(&mut page, sample[1]);
+                    write_i16(&mut page, sample[2]);
+
+                    //add_sample(SampleKind::Gyro, &data)?;
+                }
+            }
+            let page_addr = header.block_offset * 64 + i;
+            println!("Flushing to {}", page_addr);
+            if i == 0 && false {
+                println!("Complete page is");
+                for &byte in &page {
+                    print!("{:X}", byte);
+                }
+                println!();
+            }
+
+            let r = flash
+                .enable_write()
+                .unwrap()
+                .upload_to_buffer_sync(&page)
+                .unwrap();
+            let r = r.commit_sync(page_addr as u16).unwrap();
+            flash = r.finish();
+        }
+        header.block_offset += 1;
+        println!("Filled block. Starting {}", header.block_offset);
+        postcard::to_slice(&header, &mut buf).unwrap();
+        flash = write_header(flash, &buf);
+    }
+}
+
+pub fn write_i16(buf: &mut heapless::Vec<u8, { w25n512gv::PAGE_SIZE_WITH_ECC }>, val: i16) {
+    let bytes = val.to_le_bytes();
+    buf.push(bytes[0]);
+    buf.push(bytes[1]);
+}
+
+pub fn write_i32(buf: &mut heapless::Vec<u8, { w25n512gv::PAGE_SIZE_WITH_ECC }>, val: i32) {
+    let bytes = val.to_le_bytes();
+    buf.push(bytes[0]);
+    buf.push(bytes[1]);
+    buf.push(bytes[2]);
+    buf.push(bytes[3]);
 }
 
 use core::panic::PanicInfo;

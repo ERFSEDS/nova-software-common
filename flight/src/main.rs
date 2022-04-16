@@ -164,8 +164,8 @@ fn main() -> ! {
     delay.delay_ms(100u32);
 
     // MODES
-    let erase = false;
-    let dump_data = true;
+    let erase = true;
+    let dump_data = false;
 
     if erase {
         println!("Erasing chip.");
@@ -178,12 +178,20 @@ fn main() -> ! {
         led_red.set_low();
         led_green.set_high();
         led_blue.set_high();
-        for i in 0..1024 {
-            led_red.toggle();
-            led_green.toggle();
+        let mut count = 0;
+        for i in 0..50_000 {
             flash = flash.enable_write().unwrap().erase_block(i).unwrap();
+            if count % 100 == 0 {
+                led_red.toggle();
+                led_green.toggle();
+            }
+            count += 1;
         }
         println!("Finished manual erase.");
+        let mut buf = [0u8; w25n512gv::PAGE_SIZE_WITH_ECC];
+        let mut r = flash.read_sync(64).unwrap();
+        r.download_from_buffer_sync(&mut buf).unwrap();
+        println!("first data page after flash {:?}", buf);
         loop {
             led_red.set_high();
             led_green.set_high();
@@ -292,7 +300,7 @@ fn main() -> ! {
                     largest = total;
                 }
                 println!("{total} - {largest}");
-                if total > 40_000 {
+                if total > 8_000 {
                     //if total > 40_000 {
                     break;
                 }
@@ -404,7 +412,7 @@ fn main() -> ! {
                 if let Ok(sample) = bmi088_accel.get_accel() {
                     page.push(b'A');
                     page.push(b'A');
-                    page.push(2);
+
                     write_i16(&mut page, sample[0]);
                     write_i16(&mut page, sample[1]);
                     write_i16(&mut page, sample[2]);
@@ -415,6 +423,7 @@ fn main() -> ! {
                 if let Ok(sample) = bmi088_gyro.get_gyro() {
                     page.push(b'G');
                     page.push(b'G');
+                
                     write_i16(&mut page, sample[0]);
                     write_i16(&mut page, sample[1]);
                     write_i16(&mut page, sample[2]);
@@ -422,15 +431,7 @@ fn main() -> ! {
                     //add_sample(SampleKind::Gyro, &data)?;
                 }
             }
-            let page_addr = header.block_offset * 64 + i;
-            println!("Flushing to {}", page_addr);
-            if i == 0 && false {
-                println!("Complete page is");
-                for &byte in &page {
-                    print!("{:X}", byte);
-                }
-                println!();
-            }
+            let page_addr = header.block_offset * 64 + i; 
 
             let r = flash
                 .enable_write()

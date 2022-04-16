@@ -65,7 +65,7 @@ fn main() -> ! {
 
     let mut delay = dp.TIM1.delay_us(&clocks);
 
-    delay.delay_ms(100u32);
+    delay.delay_ms(2_000u32);
 
     let tx_pin = gpioa.pa2.into_alternate();
 
@@ -147,11 +147,19 @@ fn main() -> ! {
     delay.delay_ms(100u32);
 
     println!("Initializing flash chip");
-    let mut flash = w25n512gv::new(spi3, flash_cs)
-        .map_err(|e| {
-            println!("Flash chip failed to intialize. {e:?}");
-        })
-        .unwrap();
+    let mut flash = match w25n512gv::new(spi3, flash_cs) {
+        Ok(f) => f,
+        Err(e) => {
+            println!("Failed to init flash chip! {:?}", e);
+            println!("Starting reset");
+            let ptr: *mut u32 = unsafe { core::mem::transmute(0xE000_ED0Cu32) };
+            //unsafe { core::ptr::write_volatilen(ptr, 0x05FA_0000) };
+            //unsafe { core::ptr::write_volatile(ptr, 0x1 << 2) };
+            loop {
+                println!("Waiting for reset...");
+            }
+        }
+    };
 
     flash.modify_configuration_register(|r| {
         *r |= 1 << 4; // Enable ECC
@@ -164,7 +172,7 @@ fn main() -> ! {
     delay.delay_ms(100u32);
 
     // MODES
-    let erase = true;
+    let erase = false;
     let dump_data = false;
 
     if erase {
@@ -423,7 +431,7 @@ fn main() -> ! {
                 if let Ok(sample) = bmi088_gyro.get_gyro() {
                     page.push(b'G');
                     page.push(b'G');
-                
+
                     write_i16(&mut page, sample[0]);
                     write_i16(&mut page, sample[1]);
                     write_i16(&mut page, sample[2]);
@@ -431,7 +439,7 @@ fn main() -> ! {
                     //add_sample(SampleKind::Gyro, &data)?;
                 }
             }
-            let page_addr = header.block_offset * 64 + i; 
+            let page_addr = header.block_offset * 64 + i;
 
             let r = flash
                 .enable_write()

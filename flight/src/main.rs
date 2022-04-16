@@ -164,8 +164,8 @@ fn main() -> ! {
     delay.delay_ms(100u32);
 
     // MODES
-    let erase = true;
-    let dump_data = false;
+    let erase = false;
+    let dump_data = true;
 
     if erase {
         println!("Erasing chip.");
@@ -392,8 +392,8 @@ fn main() -> ! {
                         .get_second_order_sample(Oversampling::OS_256, &mut delay)
                         .unwrap();
 
-                    page.push(b'A');
-                    page.push(b'A');
+                    page.push(b'B');
+                    page.push(b'B');
 
                     write_i32(&mut page, sample.temperature);
                     write_i32(&mut page, sample.pressure);

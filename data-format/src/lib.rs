@@ -68,48 +68,38 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Calibration values from the barometer's internal memory,
-/// used to convert raw values into unit values
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct BarometerCalibration {
-    /// Pressure sensitivity | SENS_T1
-    pub pressure_sensitivity: u16,
-    ///Pressure offset | OFF_T1
-    pub pressure_offset: u16,
-    /// Temperature coefficient of pressure sensitivity | TCS
-    pub temperature_coefficient_ps: u16,
-    /// Temperature coefficient of pressure offset | TCO
-    pub temperature_coefficient_po: u16,
-    /// Reference temperature | T_REF
-    pub reference_temperature: u16,
-    /// Temperature coefficient of the temperature | TEMPSENS
-    pub temperature_coefficient_t: u16,
-}
-
 /// Raw data values that come from a single sample of the barometer
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BarometerData {
-    pub temprature: u32,
-    pub pressure: u32,
+    // Temp in Kelvin
+    pub temprature: f64,
+    // Pressure in pascals
+    pub pressure: f64,
 }
 
 /// Raw data values that come from a single sample of the barometer
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HighGAccelerometerData {
-    pub x: i16,
-    pub y: i16,
-    pub z: i16,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum Data {
-    /// Calibration values from the barometer.
-    ///
-    /// NOTE: Always sent before `BarometerData` messages
-    BarometerCalibration(BarometerCalibration),
+pub struct GyroData {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum Data { 
 
     /// Data sample from the barometer
     BarometerData(BarometerData),
+
+    /// Data sample from the barometer
+    GyroData(GyroData),
 
     /// Data sample from the high g acceleremoter
     HighGAccelerometerData(HighGAccelerometerData),

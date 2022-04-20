@@ -173,7 +173,7 @@ fn main() -> ! {
 
     // MODES
     let erase = false;
-    let dump_data = false;
+    let dump_data = true;
 
     if erase {
         println!("Erasing chip.");
@@ -270,6 +270,7 @@ fn main() -> ! {
             all_zeroes = false;
         }
     }
+    /*
     let (mut header, is_initial) = if all_zeroes {
         // First time
         println!("Runnig for the first time");
@@ -287,6 +288,12 @@ fn main() -> ! {
         header.num_reboots += 1;
 
         (header, false)
+    };
+    */
+    let is_initial = false;
+    let mut header = GlobalHeader {
+        block_offset: 29,
+        num_reboots: 0,
     };
 
     println!("Found header: {:?}", header);
@@ -343,9 +350,14 @@ fn main() -> ! {
                         println!("Reading {}", page_addr);
                         let mut r = flash.read_sync(page_addr as u16).unwrap();
                         r.download_from_buffer_sync(&mut buf);
-                        for &byte in &buf {
-                            print!("{:X}", byte);
-                        }
+                        /*for &byte in &buf {
+                            print!("{:X}{:X}", (byte & 0xF) >> 4, byte & 0x0F);
+                        }*/
+
+                        let mut dst = [0u8; 4096];
+                        let written = base64::encode_config_slice(buf, base64::STANDARD, &mut dst);
+                        let s = core::str::from_utf8(&dst[..written]).unwrap();
+                        println!("{}", s);
                         println!();
 
                         flash = r.finish();
@@ -355,7 +367,8 @@ fn main() -> ! {
         }
     }
 
-    let write_header = |flash: w25n512gv::W25n512gvWD<_, _>, header: &[u8]| {
+    //disable changing the header so we dont mess with the origional data
+    /*let write_header = |flash: w25n512gv::W25n512gvWD<_, _>, header: &[u8]| {
         // We must erase before because we are writing a page that my not be all 1's
         let flash = flash.enable_write().unwrap().erase_block(0).unwrap();
         let r = flash
@@ -366,9 +379,10 @@ fn main() -> ! {
         let r = r.commit_sync(0).unwrap();
         r.finish()
     };
+    */
 
     postcard::to_slice(&header, &mut buf).unwrap();
-    let mut flash = write_header(flash, &buf);
+    //let mut flash = write_header(flash, &buf);
 
     struct Buffer<'a> {
         buf: &'a mut [u8],
@@ -398,6 +412,7 @@ fn main() -> ! {
             page.push(b'O');
             page.push(b'V');
             page.push(b'A');
+            let mut sample_num = 0;
             loop {
                 if page.len() > page.capacity() - 8 {
                     //Almost full, flush page
@@ -410,9 +425,16 @@ fn main() -> ! {
 
                     page.push(b'B');
                     page.push(b'B');
+                    println!(
+                        "Baro  #{}, temp {} pressure {}",
+                        sample_num, sample.temperature, sample.pressure
+                    );
+                    sample_num += 1;
 
                     write_i32(&mut page, sample.temperature);
                     write_i32(&mut page, sample.pressure);
+                    let start = 0i32.max(page.len() as i32 - 16);
+                    println!("End of buffer: {:?}", &page[start as usize..]);
 
                     //add_sample(SampleKind::Pressure, &data)?;
                 }
@@ -425,6 +447,15 @@ fn main() -> ! {
                     write_i16(&mut page, sample[1]);
                     write_i16(&mut page, sample[2]);
 
+                    println!(
+                        "Accel #{}, [{}, {}, {}]",
+                        sample_num, sample[0], sample[1], sample[2],
+                    );
+                    sample_num += 1;
+
+                    let start = 0i32.max(page.len() as i32 - 16);
+                    println!("End of buffer: {:?}", &page[start as usize..]);
+
                     //add_sample(SampleKind::Accel, &data)?;
                 }
 
@@ -436,6 +467,15 @@ fn main() -> ! {
                     write_i16(&mut page, sample[1]);
                     write_i16(&mut page, sample[2]);
 
+                    println!(
+                        "Gyro  #{}, [{}, {}, {}]",
+                        sample_num, sample[0], sample[1], sample[2],
+                    );
+                    sample_num += 1;
+
+                    let start = 0i32.max(page.len() as i32 - 16);
+                    println!("End of buffer: {:?}", &page[start as usize..]);
+
                     //add_sample(SampleKind::Gyro, &data)?;
                 }
             }
@@ -446,13 +486,23 @@ fn main() -> ! {
                 .unwrap()
                 .upload_to_buffer_sync(&page)
                 .unwrap();
+
+            println!();
+            println!();
+            println!();
+            println!("Wrote page!");
+            let mut buf = [0u8; 4096];
+            let written = base64::encode_config_slice(page, base64::STANDARD, &mut buf);
+            let s = core::str::from_utf8(&buf[..written]).unwrap();
+            println!("{}", s);
+
             let r = r.commit_sync(page_addr as u16).unwrap();
             flash = r.finish();
         }
         header.block_offset += 1;
         println!("Filled block. Starting {}", header.block_offset);
         postcard::to_slice(&header, &mut buf).unwrap();
-        flash = write_header(flash, &buf);
+        //flash = write_header(flash, &buf);
     }
 }
 

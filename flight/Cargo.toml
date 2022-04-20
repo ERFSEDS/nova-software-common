@@ -16,6 +16,7 @@ bmi088 = "0.1.0"
 postcard = "0.7.3"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 heapless = { version = "0.7.7", default-features = false }
+base64 = { version = "0.13.0", default-features = false }
 
 [dependencies.ms5611-spi]
 version = "0.2.0"

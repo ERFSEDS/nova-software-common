@@ -87,9 +87,9 @@ pub struct HighGAccelerometerData {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GyroData {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -12,6 +12,7 @@ use hal::timer::{Event, Timer};
 
 use mpu9250::Mpu9250;
 use ms5611_spi::{Ms5611, Oversampling};
+use w25n512gv::{regs, Addresses, BufferRef, W25n512gv};
 
 use crate::hal::{pac, prelude::*, spi};
 use cortex_m_rt::entry;
@@ -40,14 +41,15 @@ fn main() -> ! {
     let mut serial = dp.USART6.tx(tx_pin, 9600.bps(), &clocks).unwrap();
     write!(serial, "Test").unwrap();
 
-    let sck = gpiob.pb13.into_alternate();
-    let miso = gpiob.pb14.into_alternate();
-    let mosi = gpiob.pb15.into_alternate();
+    let sck2 = gpiob.pb13.into_alternate();
+    let miso2 = gpiob.pb14.into_alternate();
+    let mosi2 = gpiob.pb15.into_alternate();
+
     let baro_cs = gpiob.pb12.into_push_pull_output();
     let imu_cs = gpioa.pa8.into_push_pull_output();
     let high_accel_cs = gpiob.pb10.into_push_pull_output();
 
-    let spi2_pins = (sck, miso, mosi);
+    let spi2_pins = (sck2, miso2, mosi2);
 
     let spi2 = spi::Spi::new(
         dp.SPI2,
@@ -60,10 +62,75 @@ fn main() -> ! {
         &clocks,
     );
 
-    let bus2 = shared_bus::BusManagerSimple::new(spi2);
+    let sck1 = gpioa.pa5.into_alternate();
+    let miso1 = gpioa.pa6.into_alternate();
+    let mosi1 = gpioa.pa7.into_alternate();
+
+    let spi1_pins = (sck1, miso1, mosi1);
+
+    let spi1 = spi::Spi::new(
+        dp.SPI1,
+        spi1_pins,
+        Mode {
+            polarity: Polarity::IdleLow,
+            phase: Phase::CaptureOnFirstTransition,
+        },
+        1000.kHz(),
+        &clocks,
+    );
+
+    let flash_cs = gpioa.pa0.into_push_pull_output();
+
+    {
+        let mut flash = w25n512gv::new(spi2, flash_cs)
+            .map_err(|e| {
+                writeln!(serial, "Flash chip failed to intialize. {e:?}");
+            })
+            .unwrap();
+
+        panic!();
+        //dump_number(flash.read_jedc_id().unwrap());
+
+        let (spi, flash_cs) = flash.reset(&mut delay);
+
+        let mut flash = w25n512gv::new(spi, flash_cs /*, &mut delay*/)
+            .map_err(|e| {
+                writeln!(serial, "Flash chip failed to intialize. {e:?}");
+            })
+            .unwrap();
+
+        flash.modify_configuration_register(|r| {
+            *r |= 1 << 4; // Enable ECC
+            *r |= 1 << 0; // disable HOLD
+        });
+
+
+        // Disable all protections
+        flash.modify_protection_register(|r| *r = 0);
+
+        let protection = flash.read_protection_register().unwrap();
+        assert_eq!(protection, 0);
+
+        writeln!(serial, "Initialized.");
+
+        let test_page = 7;
+
+        writeln!(serial, "Persistent data from last time");
+
+        let mut page = [0u8; w25n512gv::PAGE_SIZE_WITH_ECC];
+        let mut r = flash.read_sync(test_page).unwrap();
+        let flash = r.finish();
+
+        writeln!(serial, "Erasing chip...");
+        let flash = flash.enable_write().unwrap();
+        let flash = flash.erase_all().unwrap().enable_write().unwrap();
+    }
+
+    //let bus2 = shared_bus::BusManagerSimple::new(spi2);
 
     write!(serial, "Starting initialization.").unwrap();
 
+    /*
     //let mut mpu9250 = Mpu9250::marg_default(bus2.acquire_spi(), imu_cs, &mut delay).unwrap();
 
     // let who_am_i = mpu9250.who_am_i().unwrap();
@@ -90,17 +157,22 @@ fn main() -> ! {
         })
         .unwrap();
 
+    delay.delay_ms(250u32);
+
     let s = ms6511
         .get_compensated_sample(Oversampling::OS_256, &mut delay)
         .unwrap();
-    dump_number(s.pressure as u8);
 
-    let mut h3lis331dl = h3lis331dl::H3LIS331DL::new(bus2.acquire_spi(), high_accel_cs)
-        .map_err(|e| {
-            write!(serial, "HighG accelerometer failed to initialize: {:?}.", e).unwrap();
+    let mut h3lis331dl = match h3lis331dl::H3LIS331DL::new(bus2.acquire_spi(), high_accel_cs) {
+        Ok(h) => h,
+        Err(e) => {
+            //write!(serial, "HighG accelerometer failed to initialize: {:?}.", e).unwrap();
             panic!();
-        })
-        .unwrap();
+        }
+    };
+
+    panic!();
+    delay.delay_ms(250u32);
 
     let mut x = 0;
     let mut y = 0;
@@ -108,23 +180,24 @@ fn main() -> ! {
     h3lis331dl.readAxes(&mut x, &mut y, &mut z).unwrap();
     dump_number(x as u8);
 
+    let mut v = 0;
     loop {
-        blue_led.set_high();
-        red_led.set_high();
-        green_led.set_low();
-        delay.delay_ms(250u32);
+        let map_pin = |v, bit| {
+            if (v >> bit) & 0b1 == 1 {
+                hal::gpio::PinState::High
+            } else {
+                hal::gpio::PinState::Low
+            }
+        };
+        blue_led.set_state(map_pin(v, 0));
+        red_led.set_state(map_pin(v, 1));
+        green_led.set_state(map_pin(v, 2));
+        delay.delay_ms(300u32);
 
-        blue_led.set_low();
-        red_led.set_low();
-        green_led.set_high();
-        delay.delay_ms(250u32);
-
-        blue_led.set_low();
-        red_led.set_low();
-        green_led.set_low();
-
-        delay.delay_ms(250u32);
+        v += 1;
     }
+    */
+    loop {}
 }
 
 struct BadBool(UnsafeCell<bool>);
@@ -135,6 +208,7 @@ unsafe impl Sync for BadBool {}
 macro_rules! panic_block {
     ($a:ident, $val:literal) => {
         #[inline(never)]
+        #[allow(dead_code)]
         fn $a() {
             static mut TEST: BadBool = BadBool(UnsafeCell::new(false));
             // Use this cheese because unconditional panics lead to the function being snipped from

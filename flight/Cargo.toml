@@ -12,6 +12,7 @@ heapless = "0.7.10"
 fugit = "0.3.5"
 
 shared-bus = "0.2.3"
+w25n512gv = { path = "../../w25n512gv/" }
 mpu9250 = "0.24"
 h3lis331dl = { git = "https://github.com/ERFSEDS/h3lis331dl.git" }
 
